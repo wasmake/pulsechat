@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Attachment,
   MessageText,
   renderText,
   useChannelStateContext,
@@ -20,10 +21,11 @@ import { AppContext } from '@/app/client/layout';
 import { useSession } from '@/lib/auth-client';
 
 const ChannelMessage = () => {
-  const { message } = useMessageContext();
+  const { message, handleOpenThread, threadList } = useMessageContext();
   const { channel } = useChannelStateContext('ChannelMessage');
   const { data: session } = useSession();
-  const { workspace, setSelectedProfile } = useContext(AppContext);
+  const { workspace, setSelectedProfile, presenceById } =
+    useContext(AppContext);
   const user = session?.user;
   const [pinning, setPinning] = useState(false);
   const messageRef = useRef<HTMLDivElement>(null);
@@ -130,14 +132,21 @@ const ChannelMessage = () => {
       (item) => item.userId === message.user?.id
     )?.user;
     setSelectedProfile({
+      ...presenceById[message.user.id],
       id: message.user.id,
-      name: message.user.name || member?.name || 'Member',
+      name:
+        presenceById[message.user.id]?.name ||
+        message.user.name ||
+        member?.name ||
+        'Member',
       email: member?.email,
       image:
-        typeof message.user.image === 'string'
+        presenceById[message.user.id]?.image ||
+        (typeof message.user.image === 'string'
           ? message.user.image
-          : member?.image,
-      online: message.user.online,
+          : member?.image),
+      online: presenceById[message.user.id]?.online ?? message.user.online,
+      lastActive: presenceById[message.user.id]?.lastActive,
     });
   };
 
@@ -207,74 +216,84 @@ const ChannelMessage = () => {
                   'mt-3 flex-col gap-2'
                 )}
               >
-                {message.attachments?.map((attachment) => (
-                  <div
-                    key={
-                      attachment?.id ||
-                      attachment.image_url ||
-                      attachment.asset_url
-                    }
-                    className={clsx(
-                      'group/attachment relative cursor-pointer flex items-center rounded-xl gap-3 border border-[#d6d6d621] bg-[#1a1d21]',
-                      attachment?.image_url && !attachment.asset_url
-                        ? 'max-w-[360px] p-0'
-                        : 'max-w-[426px] p-3'
-                    )}
-                  >
-                    {attachment.asset_url && (
-                      <>
-                        <Avatar
-                          width={32}
-                          borderRadius={8}
-                          data={{
-                            name: attachment!.title!,
-                            image: attachment!.image_url!,
-                          }}
-                        />
-                        <div className="flex flex-col gap-0.5">
-                          <p className="text-sm text-[#d1d2d3] break-all whitespace-break-spaces line-clamp-1 mr-2">
-                            {attachment.title || `attachment`}
-                          </p>
-                          <p className="text-[13px] text-[#ababad] break-all whitespace-break-spaces line-clamp-1">
-                            {attachment.type}
-                          </p>
-                        </div>
-                      </>
-                    )}
-                    {attachment.image_url && !attachment.asset_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={attachment.image_url}
-                        alt="attachment"
-                        className="w-full max-h-[358px] aspect-auto rounded-lg"
+                {message.attachments?.map((attachment) => {
+                  if (attachment.type === 'giphy') {
+                    return (
+                      <Attachment
+                        key={attachment.id || attachment.title}
+                        attachments={[attachment]}
                       />
-                    )}
-                    {/* Message Actions */}
-                    <div className="z-20 hidden group-hover/attachment:inline-flex absolute top-2 right-2">
-                      <div className="flex p-0.5 rounded-md ml-2 bg-[#1a1d21] border border-[#797c814d]">
-                        <button
-                          onClick={() =>
-                            downloadFile(
-                              attachment.asset_url! || attachment.image_url!
-                            )
-                          }
-                          className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]"
-                        >
-                          <Download className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
-                        </button>
-                        <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
-                          <Share className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
-                        </button>
-                        <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
-                          <MoreVert
-                            size={18}
-                            className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray"
+                    );
+                  }
+                  return (
+                    <div
+                      key={
+                        attachment?.id ||
+                        attachment.image_url ||
+                        attachment.asset_url
+                      }
+                      className={clsx(
+                        'group/attachment relative cursor-pointer flex items-center rounded-xl gap-3 border border-[#d6d6d621] bg-[#1a1d21]',
+                        attachment?.image_url && !attachment.asset_url
+                          ? 'max-w-[360px] p-0'
+                          : 'max-w-[426px] p-3'
+                      )}
+                    >
+                      {attachment.asset_url && (
+                        <>
+                          <Avatar
+                            width={32}
+                            borderRadius={8}
+                            data={{
+                              name: attachment!.title!,
+                              image: attachment!.image_url!,
+                            }}
                           />
-                        </button>
+                          <div className="flex flex-col gap-0.5">
+                            <p className="text-sm text-[#d1d2d3] break-all whitespace-break-spaces line-clamp-1 mr-2">
+                              {attachment.title || `attachment`}
+                            </p>
+                            <p className="text-[13px] text-[#ababad] break-all whitespace-break-spaces line-clamp-1">
+                              {attachment.type}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      {attachment.image_url && !attachment.asset_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={attachment.image_url}
+                          alt="attachment"
+                          className="w-full max-h-[358px] aspect-auto rounded-lg"
+                        />
+                      )}
+                      {/* Message Actions */}
+                      <div className="z-20 hidden group-hover/attachment:inline-flex absolute top-2 right-2">
+                        <div className="flex p-0.5 rounded-md ml-2 bg-[#1a1d21] border border-[#797c814d]">
+                          <button
+                            onClick={() =>
+                              downloadFile(
+                                attachment.asset_url! || attachment.image_url!
+                              )
+                            }
+                            className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]"
+                          >
+                            <Download className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
+                          </button>
+                          <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
+                            <Share className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
+                          </button>
+                          <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
+                            <MoreVert
+                              size={18}
+                              className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray"
+                            />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {reactionCounts.length > 0 && (
                 <div className="flex items-center gap-1 flex-wrap mt-2">
@@ -304,6 +323,16 @@ const ChannelMessage = () => {
                   />
                 </div>
               )}
+              {!threadList && Boolean(message.reply_count) && (
+                <button
+                  type="button"
+                  onClick={handleOpenThread}
+                  className="mt-1 w-fit text-xs font-bold text-[#1d9bd1] hover:underline"
+                >
+                  {message.reply_count}{' '}
+                  {message.reply_count === 1 ? 'reply' : 'replies'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -317,7 +346,13 @@ const ChannelMessage = () => {
             buttonClassName="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray"
             onEmojiSelect={handleReaction}
           />
-          <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
+          <button
+            type="button"
+            onClick={handleOpenThread}
+            disabled={threadList}
+            title="Reply in thread"
+            className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b] disabled:hidden"
+          >
             <Threads className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
           </button>
           <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">

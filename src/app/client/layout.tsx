@@ -62,6 +62,7 @@ export type ProfileUser = {
   email?: string;
   image?: string | null;
   online?: boolean;
+  lastActive?: string;
 };
 
 export type ActivityItem = {
@@ -94,6 +95,7 @@ export const AppContext = createContext<{
   setSelectedProfile: (user: ProfileUser | null) => void;
   activities: ActivityItem[];
   unreadCount: number;
+  presenceById: Record<string, ProfileUser>;
 }>({
   workspace: {} as Workspace,
   setWorkspace: () => {},
@@ -115,6 +117,7 @@ export const AppContext = createContext<{
   setSelectedProfile: () => {},
   activities: [],
   unreadCount: 0,
+  presenceById: {},
 });
 
 const tokenProvider = async () => {
@@ -147,6 +150,9 @@ const Layout = ({ children }: LayoutProps) => {
   );
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [presenceById, setPresenceById] = useState<Record<string, ProfileUser>>(
+    {}
+  );
 
   useEffect(() => {
     const customProvider = async () => {
@@ -177,6 +183,82 @@ const Layout = ({ children }: LayoutProps) => {
 
     if (user) setUpChatAndVideo();
   }, [user, videoClient, chatClient]);
+
+  useEffect(() => {
+    if (!workspace?.memberships.length || !chatClient?.userID) return;
+    let active = true;
+    const refreshPresence = async () => {
+      const ids = workspace.memberships.map(({ userId }) => userId);
+      try {
+        const response = await chatClient.queryUsers(
+          { id: { $in: ids } },
+          [{ id: 1 }],
+          { presence: true, limit: 100 }
+        );
+        if (!active) return;
+        setPresenceById(
+          Object.fromEntries(
+            response.users.map((streamUser) => {
+              const member = workspace.memberships.find(
+                (item) => item.userId === streamUser.id
+              )?.user;
+              return [
+                streamUser.id,
+                {
+                  id: streamUser.id,
+                  name: streamUser.name || member?.name || 'Member',
+                  email: member?.email,
+                  image:
+                    typeof streamUser.image === 'string'
+                      ? streamUser.image
+                      : member?.image,
+                  online: streamUser.online,
+                  lastActive: streamUser.last_active,
+                },
+              ];
+            })
+          )
+        );
+      } catch {
+        // Presence is optional; member profiles remain available without it.
+      }
+    };
+    refreshPresence();
+    const listener = chatClient.on((event) => {
+      if (event.type === 'connection.recovered') {
+        refreshPresence();
+        return;
+      }
+      if (
+        !['user.presence.changed', 'user.updated'].includes(event.type) ||
+        !event.user ||
+        !workspace.memberships.some((item) => item.userId === event.user?.id)
+      ) {
+        return;
+      }
+      const member = workspace.memberships.find(
+        (item) => item.userId === event.user?.id
+      )?.user;
+      setPresenceById((current) => ({
+        ...current,
+        [event.user!.id]: {
+          id: event.user!.id,
+          name: event.user!.name || member?.name || 'Member',
+          email: member?.email,
+          image:
+            typeof event.user!.image === 'string'
+              ? event.user!.image
+              : member?.image,
+          online: event.user!.online,
+          lastActive: event.user!.last_active,
+        },
+      }));
+    });
+    return () => {
+      active = false;
+      listener.unsubscribe();
+    };
+  }, [chatClient, workspace]);
 
   useEffect(() => {
     if (!workspace?.id || !chatClient?.userID || !user) return;
@@ -304,6 +386,7 @@ const Layout = ({ children }: LayoutProps) => {
         setSelectedProfile,
         activities,
         unreadCount,
+        presenceById,
       }}
     >
       <Chat client={chatClient}>
@@ -393,7 +476,9 @@ const Layout = ({ children }: LayoutProps) => {
                           className="absolute inset-0 z-10"
                           aria-label="Open profile and settings"
                           title="Profile and settings"
-                          onClick={() => setSelectedProfile(user)}
+                          onClick={() =>
+                            setSelectedProfile(presenceById[user.id] || user)
+                          }
                         />
                         <div className="absolute left-0 top-0 flex items-center justify-center pointer-events-none">
                           <div className="relative w-full h-full">
@@ -408,7 +493,13 @@ const Layout = ({ children }: LayoutProps) => {
                               }}
                             />
                             <span className="absolute w-3.5 h-3.5 rounded-full flex items-center justify-center -bottom-[3px] -right-[3px] bg-[#111215]">
-                              <div className="w-[8.5px] h-[8.5px] rounded-full bg-[#3daa7c]" />
+                              <div
+                                className={`w-[8.5px] h-[8.5px] rounded-full ${
+                                  presenceById[user.id]?.online === true
+                                    ? 'bg-[#3daa7c]'
+                                    : 'border border-[#777a80]'
+                                }`}
+                              />
                             </span>
                           </div>
                         </div>
@@ -432,7 +523,11 @@ const Layout = ({ children }: LayoutProps) => {
               }
             />
             <ProfileView
-              user={selectedProfile}
+              user={
+                selectedProfile
+                  ? presenceById[selectedProfile.id] || selectedProfile
+                  : null
+              }
               currentUserId={user.id}
               workspaceId={workspace?.id}
               onClose={() => setSelectedProfile(null)}

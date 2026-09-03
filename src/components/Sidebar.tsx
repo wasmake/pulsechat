@@ -37,6 +37,7 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
     sidebarMode,
     activities,
     chatClient,
+    presenceById,
   } = useContext(AppContext);
 
   const [width, setWidth] = useState<number>(() => {
@@ -205,12 +206,23 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                       }
                       className="sidebar-btn flex items-center gap-2 h-8 px-3 rounded-md text-[15px] text-sidebar-gray hover:bg-hover-gray hover:text-white"
                     >
-                      <Avatar
-                        width={22}
-                        borderRadius={5}
-                        fontSize={12}
-                        data={membership.user}
-                      />
+                      <span className="relative">
+                        <Avatar
+                          width={22}
+                          borderRadius={5}
+                          fontSize={12}
+                          data={
+                            presenceById[membership.userId] || membership.user
+                          }
+                        />
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#101214] ${
+                            presenceById[membership.userId]?.online
+                              ? 'bg-[#2bac76]'
+                              : 'bg-[#777a80]'
+                          }`}
+                        />
+                      </span>
                       <span className="truncate">{membership.user.name}</span>
                     </button>
                   ))}

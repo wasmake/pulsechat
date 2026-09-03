@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react';
+import clsx from 'clsx';
+
 interface AvatarProps {
   width: number;
   borderRadius?: number | string;
   fontSize?: number;
   fontWeight?: number | string;
+  className?: string;
   data: {
     name: string;
     image?: string | null;
@@ -15,17 +19,24 @@ const Avatar = ({
   fontWeight = 400,
   width,
   data,
+  className,
 }: AvatarProps) => {
   const { name, image } = data;
+  const [failedImage, setFailedImage] = useState(false);
 
-  if (image)
+  useEffect(() => setFailedImage(false), [image]);
+
+  if (image && !failedImage)
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         style={{ width, height: width, borderRadius }}
-        className="overflow-hidden object-cover"
+        className={clsx('block aspect-square shrink-0 object-cover', className)}
         src={image}
         alt={name}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailedImage(true)}
       />
     );
 
@@ -38,9 +49,12 @@ const Avatar = ({
         fontWeight,
         backgroundColor: 'rgba(239,225,245,0.25)',
       }}
-      className="shrink-0 aspect-square uppercase text-white font-sans-serif font-medium flex items-center justify-center"
+      className={clsx(
+        'shrink-0 aspect-square uppercase text-white font-sans-serif font-medium flex items-center justify-center',
+        className
+      )}
     >
-      <div className="select-none">{name ? name[0] : ''}</div>
+      <div className="select-none">{name.trim().charAt(0) || '?'}</div>
     </div>
   );
 };

@@ -23,6 +23,14 @@ const ProfileView = ({
   const router = useRouter();
   if (!user) return null;
   const isCurrentUser = user.id === currentUserId;
+  const statusLabel =
+    user.online === true
+      ? 'Active'
+      : user.online === false
+        ? user.lastActive
+          ? `Last active ${new Date(user.lastActive).toLocaleString()}`
+          : 'Offline'
+        : 'Status unavailable';
 
   return (
     <aside className="fixed bottom-1 right-1 top-10 z-[8000] flex w-[min(380px,calc(100vw-8px))] flex-col overflow-hidden rounded-lg border border-[#797c814d] bg-[#1a1d21] text-white shadow-2xl">
@@ -52,10 +60,12 @@ const ProfileView = ({
               <p className="mt-1 flex items-center gap-2 text-sm text-[#b9babd]">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
-                    user.online ? 'bg-[#2bac76]' : 'border border-[#777a80]'
+                    user.online === true
+                      ? 'bg-[#2bac76]'
+                      : 'border border-[#777a80]'
                   }`}
                 />
-                {user.online ? 'Active' : 'Away'}
+                {statusLabel}
               </p>
             </div>
             {isCurrentUser && (

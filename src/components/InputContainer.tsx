@@ -56,6 +56,7 @@ import SlashBox from './icons/SlashBox';
 import Video from './icons/Video';
 import Send from './icons/Send';
 import CaretDown from './icons/CaretDown';
+import GifPicker, { GifResult } from './GifPicker';
 
 type Descendant = Omit<SlateDescendant, 'children'> & {
   children: (
@@ -116,8 +117,13 @@ const InputContainer = () => {
   const { workspace } = useContext(AppContext);
   const { channel } = useChannelStateContext();
   const { sendMessage, addNotification } = useChannelActionContext();
-  const { uploadNewFiles, attachments, removeAttachments, cooldownRemaining } =
-    useMessageInputContext();
+  const {
+    uploadNewFiles,
+    attachments,
+    removeAttachments,
+    cooldownRemaining,
+    parent,
+  } = useMessageInputContext();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const emojiSelection = useRef<Range | null>(null);
@@ -291,6 +297,7 @@ const InputContainer = () => {
           text,
           attachments,
           mentioned_users: activeMentions,
+          parent,
         });
         setFilesInfo([]);
         setMentionedUsers([]);
@@ -355,6 +362,34 @@ const InputContainer = () => {
     Transforms.select(editor, []);
     Transforms.insertText(editor, '/giphy ');
     ReactEditor.focus(editor);
+  };
+
+  const sendGif = async (gif: GifResult) => {
+    try {
+      await sendMessage({
+        text: '',
+        parent,
+        attachments: [
+          {
+            type: 'image',
+            image_url: gif.url,
+            thumb_url: gif.previewUrl,
+            title: gif.title,
+          },
+        ],
+      });
+      fetch('/api/gifs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: gif.slug, query: gif.query }),
+      }).catch(() => undefined);
+    } catch (error) {
+      addNotification(
+        error instanceof Error ? error.message : 'Unable to send GIF',
+        'error'
+      );
+      throw error;
+    }
   };
 
   return (
@@ -596,6 +631,7 @@ const InputContainer = () => {
                   ReactEditor.focus(editor);
                 }}
               />
+              <GifPicker onSelect={sendGif} />
               <button
                 type="button"
                 aria-label="Mention someone"

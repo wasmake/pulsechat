@@ -208,6 +208,33 @@
     background: transparent;
   }
 
+  .channel .str-chat__channel {
+    display: flex;
+    height: 100%;
+    min-width: 0;
+  }
+
+  .channel .str-chat__main-panel {
+    min-width: 0;
+  }
+
+  .channel .str-chat__thread {
+    width: min(390px, 42%);
+    min-width: 300px;
+    border-left: 1px solid #797c814d;
+    background: #1a1d21;
+  }
+
+  @media (max-width: 700px) {
+    .channel .str-chat__thread {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
   .channel .str-chat__list {
     background: #1a1d21;
     padding: 15px 0;

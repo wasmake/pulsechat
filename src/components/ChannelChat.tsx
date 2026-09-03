@@ -5,6 +5,7 @@ import {
   DefaultStreamChatGenerics,
   MessageInput,
   MessageList,
+  Thread,
   Window,
 } from 'stream-chat-react';
 
@@ -28,16 +29,20 @@ const ChannelChat = ({ channel, activeTab = 'messages' }: ChannelChatProps) => {
         LoadingIndicator={ChannelLoading}
         channel={channel}
         DateSeparator={DateSeperator}
+        giphyVersion="fixed_height"
       >
         {activeTab === 'messages' ? (
-          <Window>
-            <MessageList Message={ChannelMessage} />
-            {inputContainer &&
-              createPortal(
-                <MessageInput Input={InputContainer} />,
-                inputContainer
-              )}
-          </Window>
+          <>
+            <Window>
+              <MessageList Message={ChannelMessage} />
+              {inputContainer &&
+                createPortal(
+                  <MessageInput Input={InputContainer} />,
+                  inputContainer
+                )}
+            </Window>
+            <Thread Message={ChannelMessage} Input={InputContainer} />
+          </>
         ) : (
           <PinnedMessages channel={channel} />
         )}

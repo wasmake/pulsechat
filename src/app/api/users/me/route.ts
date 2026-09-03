@@ -62,7 +62,7 @@ export async function PATCH(request: Request) {
       path.join(uploadDirectory, fileName),
       Buffer.from(await avatar.arrayBuffer())
     );
-    const baseUrl = new URL(request.url).origin;
+    const baseUrl = process.env.BETTER_AUTH_URL || new URL(request.url).origin;
     image = `${baseUrl}/api/users/avatar/${fileName}?v=${Date.now()}`;
   }
 
