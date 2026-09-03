@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MessageText,
   renderText,
@@ -10,12 +10,12 @@ import emojiData from '@emoji-mart/data';
 
 import AddReaction from './icons/AddReaction';
 import Avatar from './Avatar';
-import Bookmark from './icons/Bookmark';
 import Download from './icons/Download';
 import EmojiPicker from './EmojiPicker';
 import MoreVert from './icons/MoreVert';
 import Share from './icons/Share';
 import Threads from './icons/Threads';
+import Pin from './icons/Pin';
 import { useSession } from '@/lib/auth-client';
 
 const ChannelMessage = () => {
@@ -23,6 +23,14 @@ const ChannelMessage = () => {
   const { channel } = useChannelStateContext('ChannelMessage');
   const { data: session } = useSession();
   const user = session?.user;
+  const [pinning, setPinning] = useState(false);
+  const messageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (location.hash === `#message-${encodeURIComponent(message.id)}`) {
+      messageRef.current?.scrollIntoView({ block: 'center' });
+    }
+  }, [message.id]);
 
   const reactionCounts = useMemo(() => {
     if (!message.reaction_groups) {
@@ -100,8 +108,26 @@ const ChannelMessage = () => {
     return null;
   };
 
+  const togglePin = async () => {
+    if (!message.id || pinning) return;
+    setPinning(true);
+    try {
+      if (message.pinned_at) {
+        await channel.getClient().unpinMessage(message.id);
+      } else {
+        await channel.getClient().pinMessage(message.id);
+      }
+    } finally {
+      setPinning(false);
+    }
+  };
+
   return (
-    <div className="relative flex py-2 pl-5 pr-10 group/message hover:bg-[#22252a]">
+    <div
+      ref={messageRef}
+      id={`message-${message.id}`}
+      className="relative flex py-2 pl-5 pr-10 group/message hover:bg-[#22252a] target:bg-[#3b3151]"
+    >
       {/* Image */}
       <div className="flex shrink-0 mr-2">
         <span className="w-fit h-fit inline-flex">
@@ -263,8 +289,17 @@ const ChannelMessage = () => {
           <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
             <Share className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
           </button>
-          <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
-            <Bookmark
+          <button
+            type="button"
+            onClick={togglePin}
+            disabled={pinning}
+            title={message.pinned_at ? 'Unpin message' : 'Pin message'}
+            className={clsx(
+              'group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]',
+              message.pinned_at && 'bg-[#1264a3]'
+            )}
+          >
+            <Pin
               size={18}
               className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray"
             />

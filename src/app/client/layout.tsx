@@ -36,6 +36,7 @@ import RailButton from '@/components/RailButton';
 import SearchBar from '@/components/SearchBar';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
+import UserSettingsModal from '@/components/UserSettingsModal';
 import { signOut, useSession } from '@/lib/auth-client';
 
 interface LayoutProps {
@@ -45,7 +46,11 @@ interface LayoutProps {
 
 export type Workspace = PrismaWorkspace & {
   channels: Channel[];
-  memberships: Membership[];
+  memberships: Array<
+    Membership & {
+      user: { id: string; name: string; email: string; image: string | null };
+    }
+  >;
   invitations: Invitation[];
 };
 
@@ -63,7 +68,9 @@ export const AppContext = createContext<{
   videoClient: StreamVideoClient;
   setVideoClient: (videoClient: StreamVideoClient) => void;
   channelCall: Call | undefined;
-  setChannelCall: (call: Call) => void;
+  setChannelCall: (call: Call | undefined) => void;
+  sidebarMode: 'channels' | 'dms';
+  setSidebarMode: (mode: 'channels' | 'dms') => void;
 }>({
   workspace: {} as Workspace,
   setWorkspace: () => {},
@@ -79,6 +86,8 @@ export const AppContext = createContext<{
   setVideoClient: () => {},
   channelCall: undefined,
   setChannelCall: () => {},
+  sidebarMode: 'channels',
+  setSidebarMode: () => {},
 });
 
 const tokenProvider = async () => {
@@ -102,6 +111,10 @@ const Layout = ({ children }: LayoutProps) => {
   const [chatClient, setChatClient] = useState<StreamChat>();
   const [videoClient, setVideoClient] = useState<StreamVideoClient>();
   const [channelCall, setChannelCall] = useState<Call>();
+  const [sidebarMode, setSidebarMode] = useState<'channels' | 'dms'>(
+    'channels'
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const customProvider = async () => {
@@ -157,6 +170,8 @@ const Layout = ({ children }: LayoutProps) => {
         setVideoClient,
         channelCall,
         setChannelCall,
+        sidebarMode,
+        setSidebarMode,
       }}
     >
       <Chat client={chatClient}>
@@ -211,11 +226,14 @@ const Layout = ({ children }: LayoutProps) => {
                       <RailButton
                         title="Home"
                         icon={<Home color="var(--primary)" filled />}
-                        active
+                        active={sidebarMode === 'channels'}
+                        onClick={() => setSidebarMode('channels')}
                       />
                       <RailButton
                         title="DMs"
                         icon={<Messages color="var(--primary)" />}
+                        active={sidebarMode === 'dms'}
+                        onClick={() => setSidebarMode('dms')}
                       />
                       <RailButton
                         title="Activity"
@@ -238,15 +256,9 @@ const Layout = ({ children }: LayoutProps) => {
                         <button
                           type="button"
                           className="absolute inset-0 z-10"
-                          aria-label="Sign out"
-                          title="Sign out"
-                          onClick={() =>
-                            signOut({
-                              fetchOptions: {
-                                onSuccess: () => location.assign('/sign-in'),
-                              },
-                            })
-                          }
+                          aria-label="Open profile and settings"
+                          title="Profile and settings"
+                          onClick={() => setSettingsOpen(true)}
                         />
                         <div className="absolute left-0 top-0 flex items-center justify-center pointer-events-none">
                           <div className="relative w-full h-full">
@@ -272,6 +284,18 @@ const Layout = ({ children }: LayoutProps) => {
               </div>
               <WorkspaceLayout>{children}</WorkspaceLayout>
             </div>
+            <UserSettingsModal
+              open={settingsOpen}
+              user={user}
+              onClose={() => setSettingsOpen(false)}
+              onSignOut={() =>
+                signOut({
+                  fetchOptions: {
+                    onSuccess: () => location.assign('/sign-in'),
+                  },
+                })
+              }
+            />
           </div>
         </StreamVideo>
       </Chat>

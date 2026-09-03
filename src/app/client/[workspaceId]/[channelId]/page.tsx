@@ -28,11 +28,23 @@ interface ChannelProps {
   };
 }
 
+const stableDmChannelId = (workspaceId: string, userIds: string[]) => {
+  const value = `${workspaceId}:${[...userIds].sort().join(':')}`;
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `dm-${(hash >>> 0).toString(36)}`;
+};
+
 const Channel = ({ params }: ChannelProps) => {
   const { workspaceId, channelId } = params;
   const router = useRouter();
   const { data: session } = useSession();
   const user = session?.user;
+  const isDm = channelId.startsWith('dm-');
+  const dmUserId = isDm ? channelId.slice(3) : null;
   const [currentCall] = useCalls();
   const {
     chatClient,
@@ -52,6 +64,7 @@ const Channel = ({ params }: ChannelProps) => {
     useState<ChannelType<DefaultStreamChatGenerics>>();
   const [channelLoading, setChannelLoading] = useState(true);
   const [pageWidth, setPageWidth] = useState(0);
+  const [activeTab, setActiveTab] = useState<'messages' | 'pins'>('messages');
   const layoutRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,37 +105,60 @@ const Channel = ({ params }: ChannelProps) => {
     };
 
     const loadChannel = async () => {
-      const currentMembers = workspace.memberships.map((m) => m.userId);
-      const chatChannel = chatClient.channel('messaging', channelId, {
+      const dmMember = workspace.memberships.find(
+        (item) => item.userId === dmUserId
+      );
+      const currentMembers = isDm
+        ? [user!.id, dmUserId!]
+        : workspace.memberships.map((m) => m.userId);
+      const streamChannelId = isDm
+        ? stableDmChannelId(workspaceId, currentMembers)
+        : channelId;
+      const selectedChannel = workspace.channels.find(
+        (item) => item.id === channelId
+      );
+      if ((!isDm && !selectedChannel) || (isDm && !dmMember)) {
+        router.push(`/client/${workspaceId}`);
+        return;
+      }
+      const nextChatChannel = chatClient.channel('messaging', streamChannelId, {
         members: currentMembers,
-        name: channel.name,
-        description: channel.description,
-        workspaceId: channel.workspaceId,
+        name: isDm ? dmMember!.user.name : selectedChannel!.name,
+        description: isDm ? 'Direct message' : selectedChannel!.description,
+        workspaceId,
+        isDm,
+        dmUserIds: isDm ? currentMembers : undefined,
       });
 
-      if (currentCall?.id === channelId) {
+      if (!isDm && currentCall?.id === channelId) {
         setChannelCall(currentCall);
-      } else {
+      } else if (!isDm) {
         const channelCall = videoClient?.call('default', channelId);
         setChannelCall(channelCall);
+      } else {
+        setChannelCall(undefined);
       }
 
-      setChatChannel(chatChannel);
+      setChatChannel(nextChatChannel);
       setChannelLoading(false);
     };
 
     const loadWorkspaceAndChannel = async () => {
-      if (!workspace) {
+      if (!workspace || workspace.id !== workspaceId) {
         await loadWorkspace();
       } else {
-        if (!channel)
+        if (!isDm && channel?.id !== channelId)
           setChannel(workspace.channels.find((c) => c.id === channelId)!);
         if (loading) setLoading(false);
-        if (chatClient && channel) loadChannel();
+        if (chatClient) loadChannel();
       }
     };
 
-    if ((!chatChannel || chatChannel?.id !== channelId) && user)
+    const expectedChannelId =
+      isDm && user && dmUserId
+        ? stableDmChannelId(workspaceId, [user.id, dmUserId])
+        : channelId;
+    if ((!chatChannel || chatChannel.id !== expectedChannelId) && user)
       loadWorkspaceAndChannel();
   }, [
     channel,
@@ -141,6 +177,8 @@ const Channel = ({ params }: ChannelProps) => {
     videoClient,
     workspace,
     workspaceId,
+    isDm,
+    dmUserId,
   ]);
 
   useEffect(() => {
@@ -150,6 +188,17 @@ const Channel = ({ params }: ChannelProps) => {
   }, [currentCall, channelId, setChannelCall]);
 
   if (loading) return null;
+
+  const dmMember = workspace.memberships.find(
+    (item) => item.userId === dmUserId
+  );
+  const displayChannel = workspace.channels.find(
+    (item) => item.id === channelId
+  );
+  const conversationName = isDm ? dmMember?.user.name : displayChannel?.name;
+  const conversationDescription = isDm
+    ? dmMember?.user.email
+    : displayChannel?.description;
 
   return (
     <div
@@ -161,9 +210,13 @@ const Channel = ({ params }: ChannelProps) => {
         <div className="flex flex-[1_1_0] items-center min-w-0">
           <button className="min-w-[96px] px-2 py-[3px] -ml-1 mr-2 flex flex-[0_auto] items-center text-[17.8px] rounded-md text-channel-gray hover:bg-[#d1d2d30b] leading-[1.33334]">
             <span className="mr-1 align-text-bottom">
-              <Hash color="var(--channel-gray)" size={18} />
+              {isDm ? (
+                <User color="var(--channel-gray)" size={18} />
+              ) : (
+                <Hash color="var(--channel-gray)" size={18} />
+              )}
             </span>
-            <span className="truncate font-[900]">{channel?.name}</span>
+            <span className="truncate font-[900]">{conversationName}</span>
           </button>
           <div
             className={clsx(
@@ -172,28 +225,30 @@ const Channel = ({ params }: ChannelProps) => {
             )}
           >
             <span className="min-w-[96px] max-w-[min(70%,540px)] truncate">
-              {channel?.description}
+              {conversationDescription}
             </span>
           </div>
         </div>
         <div className="flex flex-none ml-auto items-center">
-          <button
-            className={clsx(
-              'flex items-center pl-2 py-[3px] rounded-lg h-7 border border-[#797c814d] text-[#e8e8e8b3] hover:bg-[#25272b]',
-              pageWidth > 0 && pageWidth < 605 ? 'hidden' : 'flex'
-            )}
-          >
-            <User color="var(--icon-gray)" />
-            <span className="pl-1 pr-2 text-[12.8px]">
-              {workspace.memberships.length}
-            </span>
-          </button>
-          {channelCall && (
+          {!isDm && (
+            <button
+              className={clsx(
+                'flex items-center pl-2 py-[3px] rounded-lg h-7 border border-[#797c814d] text-[#e8e8e8b3] hover:bg-[#25272b]',
+                pageWidth > 0 && pageWidth < 605 ? 'hidden' : 'flex'
+              )}
+            >
+              <User color="var(--icon-gray)" />
+              <span className="pl-1 pr-2 text-[12.8px]">
+                {workspace.memberships.length}
+              </span>
+            </button>
+          )}
+          {!isDm && channelCall && (
             <StreamCall call={channelCall}>
               <HuddleToggleButton currentCall={currentCall} />
             </StreamCall>
           )}
-          {!channelCall && (
+          {!isDm && !channelCall && (
             <div className="w-[59px] flex items-center ml-2 rounded-lg h-7 border border-[#797c814d] text-[#e8e8e8b3]">
               <button className="px-2 h-[26px] hover:bg-[#25272b] rounded-l-lg">
                 <Headphones color="var(--icon-gray)" />
@@ -211,14 +266,28 @@ const Channel = ({ params }: ChannelProps) => {
       </div>
       {/* Tab Bar */}
       <div className="w-full min-w-full max-w-full h-[38px] flex items-center pl-4 pr-3 shadow-[inset_0_-1px_0_0_#797c814d] gap-1">
-        <div className="flex items-center cursor-pointer w-[92.45px] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray border-b-[2px] border-white">
+        <button
+          type="button"
+          onClick={() => setActiveTab('messages')}
+          className={clsx(
+            'flex items-center cursor-pointer w-[92.45px] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray',
+            activeTab === 'messages' && 'border-b-[2px] border-white'
+          )}
+        >
           <Message color="var(--primary)" />
           Messages
-        </div>
-        <div className="group flex items-center cursor-pointer text-[#b9babd] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray hover:text-white">
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('pins')}
+          className={clsx(
+            'group flex items-center cursor-pointer text-[#b9babd] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray hover:text-white',
+            activeTab === 'pins' && 'border-b-[2px] border-white text-white'
+          )}
+        >
           <Files className="fill-icon-gray group-hover:fill-white" size={16} />
           Files
-        </div>
+        </button>
         <div className="group flex items-center cursor-pointer text-[#b9babd] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray hover:text-white">
           <Pin className="fill-icon-gray group-hover:fill-white" size={16} />
           Pins
@@ -245,14 +314,19 @@ const Channel = ({ params }: ChannelProps) => {
               <div className="absolute h-full inset-[0_-50px_0_0] overflow-y-scroll overflow-x-hidden z-[2]">
                 {/* Messages */}
                 {channelLoading && <ChannelLoading />}
-                {!channelLoading && <ChannelChat channel={chatChannel!} />}
+                {!channelLoading && (
+                  <ChannelChat channel={chatChannel!} activeTab={activeTab} />
+                )}
               </div>
             </div>
           </div>
         </div>
         {/* Footer */}
         <div className="relative max-h-[calc(100%-36px)] flex flex-col -mt-2 px-5">
-          <div id="message-input" className="flex-1"></div>
+          <div
+            id="message-input"
+            className={clsx('flex-1', activeTab !== 'messages' && 'hidden')}
+          ></div>
           <div className="w-full flex items-center h-6 pl-3 pr-2"></div>
         </div>
       </div>

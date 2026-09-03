@@ -61,6 +61,26 @@ export async function GET(
       );
     }
 
+    const memberProfiles = await prisma.user.findMany({
+      where: { id: { in: workspace.memberships.map(({ userId }) => userId) } },
+      select: { id: true, name: true, email: true, image: true },
+    });
+    const profilesById = new Map(
+      memberProfiles.map((profile) => [profile.id, profile])
+    );
+    const workspaceWithProfiles = {
+      ...workspace,
+      memberships: workspace.memberships.map((item) => ({
+        ...item,
+        user: profilesById.get(item.userId) ?? {
+          id: item.userId,
+          name: item.email,
+          email: item.email,
+          image: null,
+        },
+      })),
+    };
+
     // Fetch the other workspaces the user is a member of excluding the current workspace
     const otherWorkspaces = await prisma.workspace.findMany({
       where: {
@@ -79,8 +99,39 @@ export async function GET(
         },
       },
     });
+    const otherMemberProfiles = await prisma.user.findMany({
+      where: {
+        id: {
+          in: otherWorkspaces.flatMap((item) =>
+            item.memberships.map(({ userId }) => userId)
+          ),
+        },
+      },
+      select: { id: true, name: true, email: true, image: true },
+    });
+    const otherProfilesById = new Map(
+      otherMemberProfiles.map((profile) => [profile.id, profile])
+    );
+    const otherWorkspacesWithProfiles = otherWorkspaces.map((item) => ({
+      ...item,
+      memberships: item.memberships.map((membership) => ({
+        ...membership,
+        user: otherProfilesById.get(membership.userId) ?? {
+          id: membership.userId,
+          name: membership.email,
+          email: membership.email,
+          image: null,
+        },
+      })),
+    }));
 
-    return NextResponse.json({ workspace, otherWorkspaces }, { status: 200 });
+    return NextResponse.json(
+      {
+        workspace: workspaceWithProfiles,
+        otherWorkspaces: otherWorkspacesWithProfiles,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error fetching workspace:', error);
     return NextResponse.json(

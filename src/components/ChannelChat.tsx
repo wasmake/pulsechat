@@ -12,12 +12,14 @@ import ChannelLoading from './ChannelLoading';
 import ChannelMessage from './ChannelMessage';
 import DateSeperator from './DateSeparator';
 import InputContainer from './InputContainer';
+import PinnedMessages from './PinnedMessages';
 
 interface ChannelChatProps {
   channel: ChannelType<DefaultStreamChatGenerics>;
+  activeTab?: 'messages' | 'pins';
 }
 
-const ChannelChat = ({ channel }: ChannelChatProps) => {
+const ChannelChat = ({ channel, activeTab = 'messages' }: ChannelChatProps) => {
   const inputContainer = document.getElementById('message-input');
 
   return (
@@ -27,14 +29,18 @@ const ChannelChat = ({ channel }: ChannelChatProps) => {
         channel={channel}
         DateSeparator={DateSeperator}
       >
-        <Window>
-          <MessageList Message={ChannelMessage} />
-          {inputContainer &&
-            createPortal(
-              <MessageInput Input={InputContainer} />,
-              inputContainer
-            )}
-        </Window>
+        {activeTab === 'messages' ? (
+          <Window>
+            <MessageList Message={ChannelMessage} />
+            {inputContainer &&
+              createPortal(
+                <MessageInput Input={InputContainer} />,
+                inputContainer
+              )}
+          </Window>
+        ) : (
+          <PinnedMessages channel={channel} />
+        )}
       </Channel>
     </div>
   );

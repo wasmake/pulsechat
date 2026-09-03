@@ -17,6 +17,8 @@ import Threads from './icons/Threads';
 import Plus from './icons/Plus';
 import { useSession } from '@/lib/auth-client';
 import WorkspaceSettingsModal from './WorkspaceSettingsModal';
+import Avatar from './Avatar';
+import { useRouter } from 'next/navigation';
 
 const [minWidth, defaultWidth] = [215, 275];
 
@@ -27,7 +29,9 @@ type SidebarProps = {
 const Sidebar = ({ layoutWidth }: SidebarProps) => {
   const { data: session } = useSession();
   const user = session?.user;
-  const { loading, workspace, setWorkspace } = useContext(AppContext);
+  const router = useRouter();
+  const { loading, workspace, setWorkspace, sidebarMode } =
+    useContext(AppContext);
 
   const [width, setWidth] = useState<number>(() => {
     const savedWidth =
@@ -154,25 +158,56 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
             <SidebarButton icon={Threads} iconSize="lg" title="Threads" />
             <SidebarButton icon={Send} iconSize="lg" title="Drafts & sent" />
           </div>
-          <div className="w-full flex flex-col">
+          <div className="w-full flex flex-col min-h-0">
             <div className="h-7 -ml-1.5 flex items-center px-4 text-[15px] leading-7">
               <button className="hover:bg-hover-gray rounded-md">
                 <ArrowDropdown color="var(--icon-gray)" />
               </button>
               <button className="flex px-[5px] max-w-full rounded-md text-sidebar-gray font-medium hover:bg-hover-gray">
-                Channels
+                {sidebarMode === 'channels' ? 'Channels' : 'Direct messages'}
               </button>
             </div>
-            <ChannelList
-              filters={{ workspaceId: workspace.id }}
-              Preview={ChannelPreview}
-              sort={{
-                created_at: 1,
-              }}
-              LoadingIndicator={() => null}
-              lockChannelOrder
-            />
-            {isWorkspaceOwner && (
+            {sidebarMode === 'channels' && (
+              <ChannelList
+                filters={{ workspaceId: workspace.id, isDm: { $ne: true } }}
+                Preview={ChannelPreview}
+                sort={{ created_at: 1 }}
+                LoadingIndicator={() => null}
+                lockChannelOrder
+              />
+            )}
+            {sidebarMode === 'dms' && (
+              <div className="flex flex-col gap-0.5 mt-1 overflow-y-auto">
+                {workspace.memberships
+                  .filter((membership) => membership.userId !== user?.id)
+                  .map((membership) => (
+                    <button
+                      key={membership.userId}
+                      type="button"
+                      onClick={() =>
+                        router.push(
+                          `/client/${workspace.id}/dm-${membership.userId}`
+                        )
+                      }
+                      className="sidebar-btn flex items-center gap-2 h-8 px-3 rounded-md text-[15px] text-sidebar-gray hover:bg-hover-gray hover:text-white"
+                    >
+                      <Avatar
+                        width={22}
+                        borderRadius={5}
+                        fontSize={12}
+                        data={membership.user}
+                      />
+                      <span className="truncate">{membership.user.name}</span>
+                    </button>
+                  ))}
+                {workspace.memberships.length <= 1 && (
+                  <p className="px-3 py-2 text-xs text-[#ababad]">
+                    Invite a teammate to start a direct message.
+                  </p>
+                )}
+              </div>
+            )}
+            {sidebarMode === 'channels' && isWorkspaceOwner && (
               <SidebarButton
                 icon={Plus}
                 title="Add a channel"

@@ -35,6 +35,9 @@ services:
       NEXT_PUBLIC_STREAM_API_KEY: ${NEXT_PUBLIC_STREAM_API_KEY:?Set NEXT_PUBLIC_STREAM_API_KEY in .env}
       STREAM_API_SECRET: ${STREAM_API_SECRET:?Set STREAM_API_SECRET in .env}
       NODE_ENV: production
+      AVATAR_UPLOAD_DIR: /app/data/avatars
+    volumes:
+      - pulsechat-uploads:/app/data
     ports:
       - "${PULSECHAT_PORT:-3000}:3000"
     depends_on:
@@ -58,3 +61,4 @@ services:
 
 volumes:
   pulsechat-mysql:
+  pulsechat-uploads:
