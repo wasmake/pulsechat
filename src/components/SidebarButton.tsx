@@ -9,6 +9,7 @@ export interface SidebarButtonProps {
   iconSize?: 'md' | 'lg';
   onClick?: () => void;
   title?: string;
+  badge?: number;
 }
 
 const SidebarButton = ({
@@ -19,6 +20,7 @@ const SidebarButton = ({
   iconSize = 'md',
   onClick,
   title,
+  badge,
 }: SidebarButtonProps) => {
   return (
     <button
@@ -44,6 +46,11 @@ const SidebarButton = ({
       >
         {title}
       </span>
+      {!!badge && (
+        <span className="ml-auto min-w-5 rounded-full bg-[#e01e5a] px-1.5 text-center text-[11px] font-bold leading-5 text-white">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </button>
   );
 };

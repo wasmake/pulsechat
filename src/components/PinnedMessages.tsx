@@ -16,16 +16,23 @@ const PinnedMessages = ({
 }) => {
   const [messages, setMessages] = useState<PinnedMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const response = await channel.getPinnedMessages({ limit: 50 }, [
-        { pinned_at: -1 },
-      ]);
-      if (active) {
-        setMessages(response.messages);
-        setLoading(false);
+      try {
+        const response = await channel.getPinnedMessages({ limit: 50 }, [
+          { pinned_at: -1 },
+        ]);
+        if (active) {
+          setMessages(response.messages);
+          setError('');
+        }
+      } catch {
+        if (active) setError('Unable to load pinned messages.');
+      } finally {
+        if (active) setLoading(false);
       }
     };
     load();
@@ -38,6 +45,10 @@ const PinnedMessages = ({
 
   if (loading) {
     return <div className="p-6 text-sm text-[#ababad]">Loading pins...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-sm text-[#ff9b9b]">{error}</div>;
   }
 
   if (!messages.length) {

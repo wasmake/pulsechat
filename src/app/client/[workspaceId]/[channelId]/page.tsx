@@ -279,19 +279,22 @@ const Channel = ({ params }: ChannelProps) => {
         </button>
         <button
           type="button"
+          className="group flex items-center cursor-pointer text-[#b9babd] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray hover:text-white"
+        >
+          <Files className="fill-icon-gray group-hover:fill-white" size={16} />
+          Files
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('pins')}
           className={clsx(
             'group flex items-center cursor-pointer text-[#b9babd] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray hover:text-white',
             activeTab === 'pins' && 'border-b-[2px] border-white text-white'
           )}
         >
-          <Files className="fill-icon-gray group-hover:fill-white" size={16} />
-          Files
-        </button>
-        <div className="group flex items-center cursor-pointer text-[#b9babd] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray hover:text-white">
           <Pin className="fill-icon-gray group-hover:fill-white" size={16} />
           Pins
-        </div>
+        </button>
         <div className="group flex items-center justify-center cursor-pointer h-7 w-7 rounded-full hover:bg-hover-gray">
           <Plus
             filled

@@ -13,6 +13,7 @@ import {
   Workspace as PrismaWorkspace,
 } from '@prisma/client';
 import { StreamChat } from 'stream-chat';
+import type { MessageResponse } from 'stream-chat';
 import { Chat } from 'stream-chat-react';
 import {
   Call,
@@ -37,6 +38,7 @@ import SearchBar from '@/components/SearchBar';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
 import UserSettingsModal from '@/components/UserSettingsModal';
+import ProfileView from '@/components/ProfileView';
 import { signOut, useSession } from '@/lib/auth-client';
 
 interface LayoutProps {
@@ -54,6 +56,23 @@ export type Workspace = PrismaWorkspace & {
   invitations: Invitation[];
 };
 
+export type ProfileUser = {
+  id: string;
+  name: string;
+  email?: string;
+  image?: string | null;
+  online?: boolean;
+};
+
+export type ActivityItem = {
+  id: string;
+  cid: string;
+  text: string;
+  createdAt: string;
+  type: 'mention' | 'dm';
+  user: ProfileUser;
+};
+
 export const AppContext = createContext<{
   workspace: Workspace;
   setWorkspace: (workspace: Workspace) => void;
@@ -69,8 +88,12 @@ export const AppContext = createContext<{
   setVideoClient: (videoClient: StreamVideoClient) => void;
   channelCall: Call | undefined;
   setChannelCall: (call: Call | undefined) => void;
-  sidebarMode: 'channels' | 'dms';
-  setSidebarMode: (mode: 'channels' | 'dms') => void;
+  sidebarMode: 'channels' | 'dms' | 'activity';
+  setSidebarMode: (mode: 'channels' | 'dms' | 'activity') => void;
+  selectedProfile: ProfileUser | null;
+  setSelectedProfile: (user: ProfileUser | null) => void;
+  activities: ActivityItem[];
+  unreadCount: number;
 }>({
   workspace: {} as Workspace,
   setWorkspace: () => {},
@@ -88,6 +111,10 @@ export const AppContext = createContext<{
   setChannelCall: () => {},
   sidebarMode: 'channels',
   setSidebarMode: () => {},
+  selectedProfile: null,
+  setSelectedProfile: () => {},
+  activities: [],
+  unreadCount: 0,
 });
 
 const tokenProvider = async () => {
@@ -111,10 +138,15 @@ const Layout = ({ children }: LayoutProps) => {
   const [chatClient, setChatClient] = useState<StreamChat>();
   const [videoClient, setVideoClient] = useState<StreamVideoClient>();
   const [channelCall, setChannelCall] = useState<Call>();
-  const [sidebarMode, setSidebarMode] = useState<'channels' | 'dms'>(
-    'channels'
-  );
+  const [sidebarMode, setSidebarMode] = useState<
+    'channels' | 'dms' | 'activity'
+  >('channels');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<ProfileUser | null>(
+    null
+  );
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const customProvider = async () => {
@@ -146,6 +178,102 @@ const Layout = ({ children }: LayoutProps) => {
     if (user) setUpChatAndVideo();
   }, [user, videoClient, chatClient]);
 
+  useEffect(() => {
+    if (!workspace?.id || !chatClient?.userID || !user) return;
+    let active = true;
+
+    const toActivity = (
+      message: MessageResponse,
+      type: ActivityItem['type']
+    ): ActivityItem | null => {
+      if (!message.id || !message.cid || message.user?.id === user.id)
+        return null;
+      const member = workspace.memberships.find(
+        (item) => item.userId === message.user?.id
+      )?.user;
+      return {
+        id: message.id,
+        cid: message.cid,
+        text: message.text || 'Shared an attachment',
+        createdAt: message.created_at || new Date().toISOString(),
+        type,
+        user: {
+          id: message.user?.id || member?.id || 'unknown',
+          name: message.user?.name || member?.name || 'Member',
+          email: member?.email,
+          image:
+            typeof message.user?.image === 'string'
+              ? message.user.image
+              : member?.image,
+          online: message.user?.online,
+        },
+      };
+    };
+
+    const loadActivity = async () => {
+      try {
+        const [mentions, unread] = await Promise.all([
+          chatClient.search(
+            { workspaceId: workspace.id },
+            {
+              mentioned_users: { $contains: user.id },
+            } as unknown as Parameters<typeof chatClient.search>[1],
+            { limit: 30, sort: [{ created_at: -1 }] }
+          ),
+          chatClient.getUnreadCount(),
+        ]);
+        if (!active) return;
+        setActivities(
+          mentions.results
+            .map(({ message }) => toActivity(message, 'mention'))
+            .filter((item): item is ActivityItem => Boolean(item))
+        );
+        setUnreadCount(unread.total_unread_count);
+      } catch {
+        // Real-time events still populate Activity if history is unavailable.
+      }
+    };
+    loadActivity();
+
+    const listener = chatClient.on((event) => {
+      if (
+        !['message.new', 'notification.message_new'].includes(event.type) ||
+        !event.message
+      ) {
+        if (event.total_unread_count !== undefined) {
+          setUnreadCount(event.total_unread_count);
+        }
+        return;
+      }
+      const mentioned = event.message.mentioned_users?.some(
+        (mentionedUser) => mentionedUser.id === user.id
+      );
+      const isDm = event.channel?.isDm === true;
+      if (
+        event.channel?.workspaceId !== workspace.id ||
+        (!mentioned && !isDm)
+      ) {
+        return;
+      }
+      const item = toActivity(event.message, mentioned ? 'mention' : 'dm');
+      if (item) {
+        setActivities((current) =>
+          [
+            item,
+            ...current.filter((existing) => existing.id !== item.id),
+          ].slice(0, 50)
+        );
+      }
+      if (event.total_unread_count !== undefined) {
+        setUnreadCount(event.total_unread_count);
+      }
+    });
+    return () => {
+      active = false;
+      listener.unsubscribe();
+    };
+  }, [chatClient, user, workspace]);
+
   if (!chatClient || !videoClient || !user)
     return (
       <div className="client font-lato w-screen h-screen flex flex-col">
@@ -172,6 +300,10 @@ const Layout = ({ children }: LayoutProps) => {
         setChannelCall,
         sidebarMode,
         setSidebarMode,
+        selectedProfile,
+        setSelectedProfile,
+        activities,
+        unreadCount,
       }}
     >
       <Chat client={chatClient}>
@@ -238,6 +370,9 @@ const Layout = ({ children }: LayoutProps) => {
                       <RailButton
                         title="Activity"
                         icon={<Notifications color="var(--primary)" />}
+                        active={sidebarMode === 'activity'}
+                        badge={unreadCount}
+                        onClick={() => setSidebarMode('activity')}
                       />
                       <RailButton
                         title="Later"
@@ -258,7 +393,7 @@ const Layout = ({ children }: LayoutProps) => {
                           className="absolute inset-0 z-10"
                           aria-label="Open profile and settings"
                           title="Profile and settings"
-                          onClick={() => setSettingsOpen(true)}
+                          onClick={() => setSelectedProfile(user)}
                         />
                         <div className="absolute left-0 top-0 flex items-center justify-center pointer-events-none">
                           <div className="relative w-full h-full">
@@ -295,6 +430,16 @@ const Layout = ({ children }: LayoutProps) => {
                   },
                 })
               }
+            />
+            <ProfileView
+              user={selectedProfile}
+              currentUserId={user.id}
+              workspaceId={workspace?.id}
+              onClose={() => setSelectedProfile(null)}
+              onEdit={() => {
+                setSelectedProfile(null);
+                setSettingsOpen(true);
+              }}
             />
           </div>
         </StreamVideo>

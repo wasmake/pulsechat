@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   MessageText,
   renderText,
@@ -16,12 +16,14 @@ import MoreVert from './icons/MoreVert';
 import Share from './icons/Share';
 import Threads from './icons/Threads';
 import Pin from './icons/Pin';
+import { AppContext } from '@/app/client/layout';
 import { useSession } from '@/lib/auth-client';
 
 const ChannelMessage = () => {
   const { message } = useMessageContext();
   const { channel } = useChannelStateContext('ChannelMessage');
   const { data: session } = useSession();
+  const { workspace, setSelectedProfile } = useContext(AppContext);
   const user = session?.user;
   const [pinning, setPinning] = useState(false);
   const messageRef = useRef<HTMLDivElement>(null);
@@ -122,6 +124,23 @@ const ChannelMessage = () => {
     }
   };
 
+  const openProfile = () => {
+    if (!message.user?.id) return;
+    const member = workspace.memberships.find(
+      (item) => item.userId === message.user?.id
+    )?.user;
+    setSelectedProfile({
+      id: message.user.id,
+      name: message.user.name || member?.name || 'Member',
+      email: member?.email,
+      image:
+        typeof message.user.image === 'string'
+          ? message.user.image
+          : member?.image,
+      online: message.user.online,
+    });
+  };
+
   return (
     <div
       ref={messageRef}
@@ -131,13 +150,24 @@ const ChannelMessage = () => {
       {/* Image */}
       <div className="flex shrink-0 mr-2">
         <span className="w-fit h-fit inline-flex">
-          <button className="w-9 h-9 shrink-0 inline-block">
+          <button
+            type="button"
+            onClick={openProfile}
+            className="w-9 h-9 shrink-0 inline-block"
+            aria-label={`View ${message.user?.name || 'member'} profile`}
+          >
             <span className="w-full h-full overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={message.user?.image}
-                alt="profile-image"
-                className="w-full h-full rounded-lg"
+              <Avatar
+                width={36}
+                borderRadius={8}
+                fontSize={15}
+                data={{
+                  name: message.user?.name || 'Member',
+                  image:
+                    typeof message.user?.image === 'string'
+                      ? message.user.image
+                      : undefined,
+                }}
               />
             </span>
           </button>
@@ -146,9 +176,13 @@ const ChannelMessage = () => {
       {/* Details */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="cursor-pointer text-[15px] leading-[1.46668] font-[900] text-white hover:underline">
+          <button
+            type="button"
+            onClick={openProfile}
+            className="cursor-pointer text-[15px] leading-[1.46668] font-[900] text-white hover:underline"
+          >
             {message.user?.name}
-          </span>
+          </button>
           <span className="pt-1 cursor-pointer text-xs leading-[1.46668] text-[#ABABAD] hover:underline">
             {createdAt}
           </span>

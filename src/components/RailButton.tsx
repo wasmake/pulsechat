@@ -7,6 +7,7 @@ export interface RailButtonProps {
   onClick?: () => void;
   title?: string;
   className?: string;
+  badge?: number;
 }
 
 const RailButton = ({
@@ -15,6 +16,7 @@ const RailButton = ({
   onClick,
   title,
   className,
+  badge,
 }: RailButtonProps) => {
   return (
     <button
@@ -26,12 +28,17 @@ const RailButton = ({
     >
       <div
         className={clsx(
-          'w-9 h-9 flex items-center justify-center transition-[background] duration-[125ms] ease-[cubic-bezier(.17,.67,.55,1.09)] group-hover:bg-[#f8f8f840] rounded-lg',
+          'relative w-9 h-9 flex items-center justify-center transition-[background] duration-[125ms] ease-[cubic-bezier(.17,.67,.55,1.09)] group-hover:bg-[#f8f8f840] rounded-lg',
           active && 'bg-[#f8f8f840]',
           !active && 'bg-transparent'
         )}
       >
         {icon}
+        {!!badge && (
+          <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-[#e01e5a] px-1 text-[10px] leading-4 text-white">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
       </div>
       <div>{title}</div>
     </button>

@@ -33,6 +33,7 @@ const ChannelPreview = ({
       onClick={goToChannel}
       active={channelActive()}
       boldText={Boolean(unread)}
+      badge={unread}
     />
   );
 };

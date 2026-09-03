@@ -8,12 +8,14 @@ interface EmojiPickerProps {
   buttonClassName?: string;
   wrapperClassName?: string;
   onEmojiSelect: (e: { id: string; native: string }) => void;
+  onOpen?: () => void;
 }
 
 const EmojiPicker = ({
   buttonClassName,
   ButtonIconComponent,
   onEmojiSelect,
+  onOpen,
   wrapperClassName,
 }: EmojiPickerProps) => {
   const [displayPicker, setDisplayPicker] = useState(false);
@@ -53,16 +55,24 @@ const EmojiPicker = ({
           className="z-50"
         >
           <Picker
-            data={(emojiData as { default: object }).default}
-            onEmojiSelect={onEmojiSelect}
+            data={emojiData}
+            onEmojiSelect={(emoji: { id: string; native: string }) => {
+              onEmojiSelect(emoji);
+              setDisplayPicker(false);
+            }}
             placement="top-start"
           />
         </div>
       )}
       <button
         ref={setReferenceElement}
-        onClick={() => setDisplayPicker((prev) => !prev)}
-        aria-expanded="true"
+        type="button"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          if (!displayPicker) onOpen?.();
+          setDisplayPicker((prev) => !prev);
+        }}
+        aria-expanded={displayPicker}
         aria-label="Emoji picker"
         className={buttonClassName}
       >

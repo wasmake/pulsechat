@@ -30,8 +30,14 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
   const { data: session } = useSession();
   const user = session?.user;
   const router = useRouter();
-  const { loading, workspace, setWorkspace, sidebarMode } =
-    useContext(AppContext);
+  const {
+    loading,
+    workspace,
+    setWorkspace,
+    sidebarMode,
+    activities,
+    chatClient,
+  } = useContext(AppContext);
 
   const [width, setWidth] = useState<number>(() => {
     const savedWidth =
@@ -164,16 +170,24 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                 <ArrowDropdown color="var(--icon-gray)" />
               </button>
               <button className="flex px-[5px] max-w-full rounded-md text-sidebar-gray font-medium hover:bg-hover-gray">
-                {sidebarMode === 'channels' ? 'Channels' : 'Direct messages'}
+                {sidebarMode === 'channels'
+                  ? 'Channels'
+                  : sidebarMode === 'dms'
+                    ? 'Direct messages'
+                    : 'Activity'}
               </button>
             </div>
             {sidebarMode === 'channels' && (
               <ChannelList
-                filters={{ workspaceId: workspace.id, isDm: { $ne: true } }}
+                filters={{ workspaceId: workspace.id }}
                 Preview={ChannelPreview}
                 sort={{ created_at: 1 }}
                 LoadingIndicator={() => null}
                 lockChannelOrder
+                allowNewMessagesFromUnfilteredChannels={false}
+                channelRenderFilterFn={(channels) =>
+                  channels.filter((item) => item.data?.isDm !== true)
+                }
               />
             )}
             {sidebarMode === 'dms' && (
@@ -204,6 +218,59 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                   <p className="px-3 py-2 text-xs text-[#ababad]">
                     Invite a teammate to start a direct message.
                   </p>
+                )}
+              </div>
+            )}
+            {sidebarMode === 'activity' && (
+              <div className="mt-1 flex min-h-0 flex-col gap-1 overflow-y-auto">
+                {activities.map((activity) => (
+                  <button
+                    key={activity.id}
+                    type="button"
+                    onClick={async () => {
+                      const [target] = await chatClient.queryChannels(
+                        { cid: activity.cid },
+                        {},
+                        { limit: 1 }
+                      );
+                      if (!target) return;
+                      const ids = target.data?.dmUserIds as
+                        | string[]
+                        | undefined;
+                      const peerId = ids?.find((id) => id !== user?.id);
+                      const routeId =
+                        target.data?.isDm === true && peerId
+                          ? `dm-${peerId}`
+                          : target.id;
+                      router.push(
+                        `/client/${workspace.id}/${routeId}#message-${activity.id}`
+                      );
+                    }}
+                    className="flex gap-2 rounded-md px-2 py-2 text-left hover:bg-hover-gray"
+                  >
+                    <Avatar
+                      width={30}
+                      borderRadius={7}
+                      fontSize={13}
+                      data={activity.user}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1 text-xs font-bold text-white">
+                        {activity.user.name}
+                        <span className="rounded bg-[#3b3151] px-1 text-[10px] text-[#d7c8ff]">
+                          {activity.type === 'mention' ? '@ mention' : 'DM'}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-[#b9babd]">
+                        {activity.text}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+                {!activities.length && (
+                  <div className="px-3 py-5 text-center text-xs text-[#ababad]">
+                    Mentions and direct-message notifications will appear here.
+                  </div>
                 )}
               </div>
             )}

@@ -14,6 +14,7 @@ import {
   Slate,
   RenderLeafProps,
   RenderElementProps,
+  ReactEditor,
 } from 'slate-react';
 import {
   Editor,
@@ -22,6 +23,7 @@ import {
   Descendant as SlateDescendant,
   Element as SlateElement,
   Text,
+  Range,
 } from 'slate';
 import isHotkey from 'is-hotkey';
 import { withHistory } from 'slate-history';
@@ -30,6 +32,7 @@ import {
   useChannelStateContext,
   useMessageInputContext,
 } from 'stream-chat-react';
+import type { UserResponse } from 'stream-chat';
 
 import { AppContext } from '../app/client/layout';
 import Avatar from './Avatar';
@@ -112,12 +115,16 @@ const initialValue: Descendant[] = [
 const InputContainer = () => {
   const { workspace } = useContext(AppContext);
   const { channel } = useChannelStateContext();
-  const { sendMessage } = useChannelActionContext();
+  const { sendMessage, addNotification } = useChannelActionContext();
   const { uploadNewFiles, attachments, removeAttachments, cooldownRemaining } =
     useMessageInputContext();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const emojiSelection = useRef<Range | null>(null);
   const [filesInfo, setFilesInfo] = useState<FileInfo[]>([]);
+  const [composerText, setComposerText] = useState('');
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionedUsers, setMentionedUsers] = useState<UserResponse[]>([]);
 
   const renderElement = useCallback(
     (props: ElementProps) => <Element {...props} />,
@@ -130,8 +137,21 @@ const InputContainer = () => {
   const editor = useMemo(() => withHistory(withReact(createEditor())), []);
   const channelName = useMemo(() => {
     const currentChannel = workspace.channels.find((c) => c.id === channel.id);
-    return currentChannel?.name || '';
-  }, [workspace.channels, channel.id]);
+    return currentChannel?.name || String(channel.data?.name || 'message');
+  }, [workspace.channels, channel.id, channel.data?.name]);
+
+  const mentionSuggestions = useMemo(() => {
+    if (mentionQuery === null) return [];
+    const query = mentionQuery.toLowerCase();
+    return workspace.memberships
+      .map(({ user }) => user)
+      .filter(
+        (member) =>
+          member.name.toLowerCase().includes(query) ||
+          member.email.toLowerCase().includes(query)
+      )
+      .slice(0, 6);
+  }, [mentionQuery, workspace.memberships]);
 
   const serializeToMarkdown = (nodes: Descendant[]) => {
     return nodes.map((n) => serializeNode(n)).join('\n');
@@ -263,22 +283,86 @@ const InputContainer = () => {
   const handleSubmit = async () => {
     const text = serializeToMarkdown(editor.children as Descendant[]);
     if (text || attachments.length > 0) {
-      sendMessage({
-        text,
-        attachments,
-      });
-      setFilesInfo([]);
-      removeAttachments(attachments.map((a) => a.localMetadata.id));
+      try {
+        const activeMentions = mentionedUsers.filter(
+          (member) => member.name && text.includes(`@${member.name}`)
+        );
+        await sendMessage({
+          text,
+          attachments,
+          mentioned_users: activeMentions,
+        });
+        setFilesInfo([]);
+        setMentionedUsers([]);
+        setMentionQuery(null);
+        setComposerText('');
+        removeAttachments(attachments.map((a) => a.localMetadata.id));
 
-      const point = { path: [0, 0], offset: 0 };
-      editor.selection = { anchor: point, focus: point };
-      editor.history = { redos: [], undos: [] };
-      editor.children = initialValue;
+        const point = { path: [0, 0], offset: 0 };
+        editor.selection = { anchor: point, focus: point };
+        editor.history = { redos: [], undos: [] };
+        editor.children = initialValue;
+      } catch (error) {
+        addNotification(
+          error instanceof Error ? error.message : 'Unable to send message',
+          'error'
+        );
+      }
     }
   };
 
+  const updateComposerState = () => {
+    const text = Editor.string(editor, []);
+    setComposerText(text);
+    if (!editor.selection || !Range.isCollapsed(editor.selection)) {
+      setMentionQuery(null);
+      return;
+    }
+    const beforeCursor = Editor.string(editor, {
+      anchor: Editor.start(editor, []),
+      focus: editor.selection.anchor,
+    });
+    const match = beforeCursor.match(/(?:^|\s)@([^\s@]{0,40})$/);
+    setMentionQuery(match ? match[1] : null);
+  };
+
+  const insertMention = (member: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  }) => {
+    if (!editor.selection || mentionQuery === null) return;
+    const start = Editor.before(editor, editor.selection.anchor, {
+      distance: mentionQuery.length + 1,
+      unit: 'character',
+    });
+    if (start) {
+      Transforms.delete(editor, {
+        at: { anchor: start, focus: editor.selection.anchor },
+      });
+    }
+    Transforms.insertText(editor, `@${member.name} `);
+    setMentionedUsers((current) => [
+      ...current.filter((item) => item.id !== member.id),
+      member,
+    ]);
+    setMentionQuery(null);
+    ReactEditor.focus(editor);
+  };
+
+  const insertGiphyCommand = () => {
+    Transforms.select(editor, []);
+    Transforms.insertText(editor, '/giphy ');
+    ReactEditor.focus(editor);
+  };
+
   return (
-    <Slate editor={editor} initialValue={initialValue}>
+    <Slate
+      editor={editor}
+      initialValue={initialValue}
+      onChange={updateComposerState}
+    >
       <div className="input-container relative rounded-md border border-[#565856] has-[:focus]:border-[#868686] bg-[#22252a]">
         <div className="[&>.formatting]:has-[:focus]:opacity-100 [&>.formatting]:has-[:focus]:select-text flex flex-col">
           {/* Formatting */}
@@ -351,6 +435,18 @@ const InputContainer = () => {
                   spellCheck
                   autoFocus
                   onKeyDown={(event) => {
+                    if (mentionQuery !== null && mentionSuggestions.length) {
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        setMentionQuery(null);
+                        return;
+                      }
+                      if (event.key === 'Enter' || event.key === 'Tab') {
+                        event.preventDefault();
+                        insertMention(mentionSuggestions[0]);
+                        return;
+                      }
+                    }
                     if (event.key === 'Enter') {
                       if (event.shiftKey) {
                         return;
@@ -373,6 +469,52 @@ const InputContainer = () => {
                     }
                   }}
                 />
+                {mentionQuery !== null && mentionSuggestions.length > 0 && (
+                  <div className="absolute bottom-[84px] left-3 z-50 w-[min(360px,calc(100%-24px))] rounded-lg border border-[#797c814d] bg-[#1a1d21] p-1 shadow-2xl">
+                    <p className="px-2 py-1 text-xs font-bold text-[#ababad]">
+                      Mention someone
+                    </p>
+                    {mentionSuggestions.map((member) => (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => insertMention(member)}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-[#1264a3]"
+                      >
+                        <Avatar
+                          width={26}
+                          borderRadius={6}
+                          fontSize={12}
+                          data={member}
+                        />
+                        <span className="truncate text-sm font-bold text-white">
+                          {member.name}
+                        </span>
+                        <span className="truncate text-xs text-[#ababad]">
+                          {member.email}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {composerText.startsWith('/') &&
+                  !composerText.includes('\n') &&
+                  '/giphy'.startsWith(composerText.split(' ')[0]) && (
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={insertGiphyCommand}
+                      className="absolute bottom-[84px] left-3 z-40 flex w-[min(360px,calc(100%-24px))] items-center gap-3 rounded-lg border border-[#797c814d] bg-[#1a1d21] px-3 py-2 text-left shadow-2xl hover:bg-[#25272b]"
+                    >
+                      <span className="rounded bg-[#1264a3] px-2 py-1 font-mono text-xs text-white">
+                        /giphy
+                      </span>
+                      <span className="text-sm text-[#d1d2d3]">
+                        Search and send a GIF
+                      </span>
+                    </button>
+                  )}
                 {/* File preview section */}
                 {filesInfo.length > 0 && (
                   <div className="relative mt-4 flex items-center gap-3 flex-wrap">
@@ -443,15 +585,29 @@ const InputContainer = () => {
                 buttonClassName="w-7 h-7 p-0.5 m-0.5 inline-flex items-center justify-center rounded [&_path]:fill-icon-gray hover:bg-[#d1d2d30b] [&_path]:hover:fill-channel-gray"
                 ButtonIconComponent={Emoji}
                 wrapperClassName="relative"
+                onOpen={() => {
+                  emojiSelection.current = editor.selection;
+                }}
                 onEmojiSelect={(e) => {
+                  if (emojiSelection.current) {
+                    Transforms.select(editor, emojiSelection.current);
+                  }
                   Transforms.insertText(editor, e.native);
+                  ReactEditor.focus(editor);
                 }}
               />
-              <Button
-                format="mention"
+              <button
+                type="button"
+                aria-label="Mention someone"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  Transforms.insertText(editor, '@');
+                  ReactEditor.focus(editor);
+                }}
                 className="rounded hover:bg-[#d1d2d30b] [&_path]:hover:fill-channel-gray"
-                icon={<Mentions color="var(--icon-gray)" />}
-              />
+              >
+                <Mentions color="var(--icon-gray)" />
+              </button>
               <div className="hidden sm:block separator h-5 w-[1px] mx-1.5 my-0.5 self-center flex-shrink-0 bg-[#e8e8e821]" />
               <Button
                 format="none"
@@ -464,11 +620,15 @@ const InputContainer = () => {
                 icon={<Microphone color="var(--icon-gray)" />}
               />
               <div className="hidden sm:block separator h-5 w-[1px] mx-1.5 my-0.5 self-center flex-shrink-0 bg-[#e8e8e821]" />
-              <Button
-                format="none"
+              <button
+                type="button"
+                aria-label="Insert slash command"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={insertGiphyCommand}
                 className="hidden sm:inline-flex rounded hover:bg-[#d1d2d30b] [&_path]:hover:fill-channel-gray"
-                icon={<SlashBox color="var(--icon-gray)" />}
-              />
+              >
+                <SlashBox color="var(--icon-gray)" />
+              </button>
             </div>
             <div className="flex items-center mr-0.5 ml-2 rounded h-7 border border-[#797c814d] text-[#e8e8e8b3] bg-[#007a5a] border-[#007a5a]">
               <button
