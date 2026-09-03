@@ -15,6 +15,8 @@ import DateSeperator from './DateSeparator';
 import InputContainer from './InputContainer';
 import PinnedMessages from './PinnedMessages';
 import MentionProfileCard from './MentionProfileCard';
+import TypingStatus from './TypingStatus';
+import DiscordThreadHeader from './DiscordThreadHeader';
 
 interface ChannelChatProps {
   channel: ChannelType<DefaultStreamChatGenerics>;
@@ -34,6 +36,7 @@ const ChannelChat = ({ channel, activeTab = 'messages' }: ChannelChatProps) => {
         channel={channel}
         DateSeparator={DateSeperator}
         giphyVersion="fixed_height"
+        ThreadHeader={DiscordThreadHeader}
         onMentionsClick={(event, user) => {
           if (!user) return;
           const pointer = event.nativeEvent as MouseEvent;
@@ -48,6 +51,7 @@ const ChannelChat = ({ channel, activeTab = 'messages' }: ChannelChatProps) => {
             <Window>
               <MessageList Message={ChannelMessage} />
               <div className="px-5 pb-2">
+                <TypingStatus />
                 <MessageInput Input={InputContainer} />
               </div>
             </Window>

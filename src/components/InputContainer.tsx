@@ -2,6 +2,7 @@ import {
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -115,7 +116,9 @@ const initialValue: Descendant[] = [
 const InputContainer = () => {
   const { workspace } = useContext(AppContext);
   const { channel } = useChannelStateContext();
-  const { sendMessage, addNotification } = useChannelActionContext();
+  const { sendMessage, addNotification, setQuotedMessage } =
+    useChannelActionContext();
+  const { quotedMessage } = useChannelStateContext();
   const {
     uploadNewFiles,
     attachments,
@@ -129,6 +132,7 @@ const InputContainer = () => {
   const [filesInfo, setFilesInfo] = useState<FileInfo[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionedUsers, setMentionedUsers] = useState<UserResponse[]>([]);
+  const lastComposerText = useRef('');
 
   const renderElement = useCallback(
     (props: ElementProps) => <Element {...props} />,
@@ -291,15 +295,21 @@ const InputContainer = () => {
         const activeMentions = mentionedUsers.filter(
           (member) => member.name && text.includes(`@${member.name}`)
         );
-        await sendMessage({
-          text,
-          attachments,
-          mentioned_users: activeMentions,
-          parent,
-        });
+        await sendMessage(
+          {
+            text,
+            attachments,
+            mentioned_users: activeMentions,
+            parent,
+          },
+          quotedMessage ? { quoted_message_id: quotedMessage.id } : undefined
+        );
+        await channel.stopTyping(parent?.id);
         setFilesInfo([]);
         setMentionedUsers([]);
         setMentionQuery(null);
+        setQuotedMessage(undefined);
+        lastComposerText.current = '';
         removeAttachments(attachments.map((a) => a.localMetadata.id));
 
         const point = { path: [0, 0], offset: 0 };
@@ -316,6 +326,15 @@ const InputContainer = () => {
   };
 
   const updateComposerState = () => {
+    const text = Editor.string(editor, []);
+    if (text !== lastComposerText.current) {
+      lastComposerText.current = text;
+      if (text) {
+        channel.keystroke(parent?.id).catch(() => undefined);
+      } else {
+        channel.stopTyping(parent?.id).catch(() => undefined);
+      }
+    }
     if (!editor.selection || !Range.isCollapsed(editor.selection)) {
       setMentionQuery(null);
       return;
@@ -327,6 +346,13 @@ const InputContainer = () => {
     const match = beforeCursor.match(/(?:^|\s)@([^\s@]{0,40})$/);
     setMentionQuery(match ? match[1] : null);
   };
+
+  useEffect(
+    () => () => {
+      channel.stopTyping(parent?.id).catch(() => undefined);
+    },
+    [channel, parent?.id]
+  );
 
   const insertMention = (member: {
     id: string;
@@ -355,18 +381,27 @@ const InputContainer = () => {
 
   const sendGif = async (gif: GifResult) => {
     try {
-      await sendMessage({
-        text: '',
-        parent,
-        attachments: [
-          {
-            type: 'image',
-            image_url: gif.url,
-            thumb_url: gif.previewUrl,
-            title: gif.title,
-          },
-        ],
-      });
+      await sendMessage(
+        {
+          text: '',
+          parent,
+          attachments: [
+            {
+              type: 'image',
+              image_url: gif.url,
+              thumb_url: gif.previewUrl,
+              title: gif.title,
+              klipy_id: gif.id,
+              klipy_slug: gif.slug,
+              klipy_preview_url: gif.previewUrl,
+              klipy_width: gif.width,
+              klipy_height: gif.height,
+            },
+          ],
+        },
+        quotedMessage ? { quoted_message_id: quotedMessage.id } : undefined
+      );
+      setQuotedMessage(undefined);
       fetch('/api/gifs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -388,6 +423,29 @@ const InputContainer = () => {
       onChange={updateComposerState}
     >
       <div className="input-container relative rounded-md border border-[#565856] has-[:focus]:border-[#868686] bg-[#22252a]">
+        {quotedMessage && !parent && (
+          <div className="flex items-center justify-between gap-3 border-b border-[#565856] px-3 py-2 text-xs text-[#b9babd]">
+            <div className="min-w-0 border-l-2 border-[#5865f2] pl-2">
+              <span className="font-bold text-[#f2f3f5]">
+                Replying to {quotedMessage.user?.name || 'member'}
+              </span>
+              <p className="truncate">
+                {quotedMessage.text ||
+                  (quotedMessage.attachments?.length
+                    ? 'Attachment'
+                    : 'Message')}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Cancel reply"
+              onClick={() => setQuotedMessage(undefined)}
+              className="rounded p-1 hover:bg-[#3f4147]"
+            >
+              <Close size={16} color="var(--icon-gray)" />
+            </button>
+          </div>
+        )}
         <div className="[&>.formatting]:has-[:focus]:opacity-100 [&>.formatting]:has-[:focus]:select-text flex flex-col">
           {/* Formatting */}
           <div className="formatting opacity-30 flex p-1 w-full rounded-t-lg cursor-text">

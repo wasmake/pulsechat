@@ -474,11 +474,9 @@ const Layout = ({ children }: LayoutProps) => {
                         <button
                           type="button"
                           className="absolute inset-0 z-10"
-                          aria-label="Open profile and settings"
-                          title="Profile and settings"
-                          onClick={() =>
-                            setSelectedProfile(presenceById[user.id] || user)
-                          }
+                          aria-label="Open profile settings"
+                          title="Profile settings"
+                          onClick={() => setSettingsOpen(true)}
                         />
                         <div className="absolute left-0 top-0 flex items-center justify-center pointer-events-none">
                           <div className="relative w-full h-full">

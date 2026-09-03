@@ -3,6 +3,7 @@ import {
   Attachment,
   MessageText,
   renderText,
+  useChannelActionContext,
   useChannelStateContext,
   useMessageContext,
 } from 'stream-chat-react';
@@ -19,10 +20,13 @@ import Threads from './icons/Threads';
 import Pin from './icons/Pin';
 import { AppContext } from '@/app/client/layout';
 import { useSession } from '@/lib/auth-client';
+import GifFavoriteButton from './GifFavoriteButton';
+import type { GifResult } from './GifPicker';
 
 const ChannelMessage = () => {
   const { message, handleOpenThread, threadList } = useMessageContext();
   const { channel } = useChannelStateContext('ChannelMessage');
+  const { setQuotedMessage } = useChannelActionContext('ChannelMessage');
   const { data: session } = useSession();
   const { workspace, setSelectedProfile, presenceById } =
     useContext(AppContext);
@@ -31,13 +35,26 @@ const ChannelMessage = () => {
     (mentionedUser) => mentionedUser.id === user?.id
   );
   const [pinning, setPinning] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const messageRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isAuthor = message.user?.id === user?.id;
 
   useEffect(() => {
     if (location.hash === `#message-${encodeURIComponent(message.id)}`) {
       messageRef.current?.scrollIntoView({ block: 'center' });
     }
   }, [message.id]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeMenu = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    window.addEventListener('mousedown', closeMenu);
+    return () => window.removeEventListener('mousedown', closeMenu);
+  }, [menuOpen]);
 
   const reactionCounts = useMemo(() => {
     if (!message.reaction_groups) {
@@ -153,6 +170,65 @@ const ChannelMessage = () => {
     });
   };
 
+  const deleteMessage = async () => {
+    if (!isAuthor || deleting || !message.id) return;
+    if (!window.confirm('Delete this message?')) return;
+    setDeleting(true);
+    try {
+      await channel.getClient().deleteMessage(message.id);
+      setMenuOpen(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const getGif = (attachment: Record<string, unknown>): GifResult | null => {
+    const imageUrl = attachment.image_url;
+    if (typeof imageUrl !== 'string') return null;
+    try {
+      if (
+        !['static.klipy.com', 'static.klipy.co', 'static2.klipy.com'].includes(
+          new URL(imageUrl).hostname
+        )
+      ) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    const metadataId = attachment.klipy_id;
+    let hash = 0;
+    for (let index = 0; index < imageUrl.length; index += 1) {
+      hash = (hash * 31 + imageUrl.charCodeAt(index)) | 0;
+    }
+    return {
+      id:
+        typeof metadataId === 'string'
+          ? metadataId
+          : `shared-${Math.abs(hash).toString(36)}`,
+      slug:
+        typeof attachment.klipy_slug === 'string'
+          ? attachment.klipy_slug
+          : 'shared',
+      title:
+        typeof attachment.title === 'string' ? attachment.title : 'Shared GIF',
+      previewUrl:
+        typeof attachment.klipy_preview_url === 'string'
+          ? attachment.klipy_preview_url
+          : imageUrl,
+      url: imageUrl,
+      width:
+        typeof attachment.klipy_width === 'number'
+          ? attachment.klipy_width
+          : 200,
+      height:
+        typeof attachment.klipy_height === 'number'
+          ? attachment.klipy_height
+          : 200,
+      query: '',
+    };
+  };
+
   return (
     <div
       ref={messageRef}
@@ -205,6 +281,22 @@ const ChannelMessage = () => {
         <div className="mb-1">
           <div className="w-full">
             <div className="flex flex-col max-w-[245px] sm:max-w-full">
+              {message.quoted_message && (
+                <a
+                  href={`#message-${encodeURIComponent(message.quoted_message.id)}`}
+                  className="mb-1 flex max-w-xl items-center gap-2 overflow-hidden border-l-2 border-[#5865f2] pl-2 text-xs !text-[#b5bac1] hover:!text-[#dbdee1]"
+                >
+                  <span className="shrink-0 font-bold text-[#f2f3f5]">
+                    @{message.quoted_message.user?.name || 'member'}
+                  </span>
+                  <span className="truncate">
+                    {message.quoted_message.text ||
+                      (message.quoted_message.attachments?.length
+                        ? 'Attachment'
+                        : 'Message')}
+                  </span>
+                </a>
+              )}
               <MessageText
                 renderText={(text, mentionedUsers) =>
                   renderText(text, mentionedUsers, {
@@ -223,6 +315,9 @@ const ChannelMessage = () => {
                 )}
               >
                 {message.attachments?.map((attachment) => {
+                  const gif = getGif(
+                    attachment as unknown as Record<string, unknown>
+                  );
                   if (attachment.type === 'giphy') {
                     return (
                       <Attachment
@@ -273,8 +368,18 @@ const ChannelMessage = () => {
                           className="w-full max-h-[358px] aspect-auto rounded-lg"
                         />
                       )}
+                      {gif && (
+                        <div className="absolute right-2 top-2 z-30">
+                          <GifFavoriteButton gif={gif} />
+                        </div>
+                      )}
                       {/* Message Actions */}
-                      <div className="z-20 hidden group-hover/attachment:inline-flex absolute top-2 right-2">
+                      <div
+                        className={clsx(
+                          'z-20 hidden group-hover/attachment:inline-flex absolute top-2',
+                          gif ? 'right-11' : 'right-2'
+                        )}
+                      >
                         <div className="flex p-0.5 rounded-md ml-2 bg-[#1a1d21] border border-[#797c814d]">
                           <button
                             onClick={() =>
@@ -354,15 +459,21 @@ const ChannelMessage = () => {
           />
           <button
             type="button"
+            onClick={() => setQuotedMessage(message)}
+            disabled={threadList}
+            title="Reply"
+            className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b] disabled:hidden"
+          >
+            <Share className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
+          </button>
+          <button
+            type="button"
             onClick={handleOpenThread}
             disabled={threadList}
             title="Reply in thread"
             className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b] disabled:hidden"
           >
             <Threads className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
-          </button>
-          <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
-            <Share className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray" />
           </button>
           <button
             type="button"
@@ -379,7 +490,13 @@ const ChannelMessage = () => {
               className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray"
             />
           </button>
-          <button className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            aria-label="More message actions"
+            className="group/button rounded flex w-8 h-8 items-center justify-center hover:bg-[#d1d2d30b]"
+          >
             <MoreVert
               size={18}
               className="fill-[#e8e8e8b3] group-hover/button:fill-channel-gray"
@@ -387,6 +504,35 @@ const ChannelMessage = () => {
           </button>
         </div>
       </div>
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          className="absolute right-9 top-7 z-50 min-w-44 rounded-md border border-[#111214] bg-[#111214] p-1.5 text-sm text-[#dbdee1] shadow-2xl"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(
+                `${location.origin}${location.pathname}#message-${encodeURIComponent(message.id)}`
+              );
+              setMenuOpen(false);
+            }}
+            className="w-full rounded px-2 py-2 text-left hover:bg-[#4752c4] hover:text-white"
+          >
+            Copy message link
+          </button>
+          {isAuthor && (
+            <button
+              type="button"
+              onClick={deleteMessage}
+              disabled={deleting}
+              className="w-full rounded px-2 py-2 text-left text-[#f23f42] hover:bg-[#da373c] hover:text-white disabled:opacity-60"
+            >
+              {deleting ? 'Deleting...' : 'Delete message'}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
