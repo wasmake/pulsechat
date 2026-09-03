@@ -8,15 +8,33 @@ generator client {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
+  email         String        @unique
+  emailVerified Boolean       @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   sessions      Session[]
   accounts      Account[]
+  favoriteGifs  FavoriteGif[]
+}
+
+model FavoriteGif {
+  id         String   @id @default(cuid())
+  userId     String
+  providerId String
+  slug       String
+  title      String
+  previewUrl String   @db.Text
+  url        String   @db.Text
+  width      Int?
+  height     Int?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, providerId])
+  @@index([userId, createdAt])
 }
 
 model Session {
@@ -62,43 +80,44 @@ model Verification {
 }
 
 model Workspace {
-  id           String       @id @default(cuid())
-  name         String
-  image        String?
-  accentColor  String       @default("#4a154b")
-  ownerId      String 
-  channels     Channel[]    
-  memberships  Membership[]
+  id          String       @id @default(cuid())
+  name        String
+  image       String?
+  accentColor String       @default("#4a154b")
+  ownerId     String
+  channels    Channel[]
+  memberships Membership[]
   invitations Invitation[]
 }
 
 model Channel {
-  id           String       @id @default(cuid())
-  name         String
-  description  String?
-  workspaceId  String
-  workspace    Workspace    @relation(fields: [workspaceId], references: [id])
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }
 
 model Membership {
-  id           String       @id @default(cuid())
-  userId       String
-  email        String
-  workspaceId  String
-  workspace    Workspace @relation(fields: [workspaceId], references: [id])
-  role         String?      @default("member")
-  joinedAt     DateTime?    @default(now())
+  id          String    @id @default(cuid())
+  userId      String
+  email       String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  role        String?   @default("member")
+  joinedAt    DateTime? @default(now())
+
   @@unique([userId, workspaceId])
 }
 
 model Invitation {
-  id            Int        @id @default(autoincrement())
-  email         String
-  token         String     @unique
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id])
-  invitedById   String
-  acceptedById  String?
-  createdAt     DateTime   @default(now())
-  acceptedAt    DateTime?
+  id           Int       @id @default(autoincrement())
+  email        String
+  token        String    @unique
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  invitedById  String
+  acceptedById String?
+  createdAt    DateTime  @default(now())
+  acceptedAt   DateTime?
 }

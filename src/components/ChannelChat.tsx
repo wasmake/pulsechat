@@ -1,5 +1,5 @@
-import { createPortal } from 'react-dom';
-import { Channel as ChannelType } from 'stream-chat';
+import { Channel as ChannelType, UserResponse } from 'stream-chat';
+import { useState } from 'react';
 import {
   Channel,
   DefaultStreamChatGenerics,
@@ -14,6 +14,7 @@ import ChannelMessage from './ChannelMessage';
 import DateSeperator from './DateSeparator';
 import InputContainer from './InputContainer';
 import PinnedMessages from './PinnedMessages';
+import MentionProfileCard from './MentionProfileCard';
 
 interface ChannelChatProps {
   channel: ChannelType<DefaultStreamChatGenerics>;
@@ -21,7 +22,10 @@ interface ChannelChatProps {
 }
 
 const ChannelChat = ({ channel, activeTab = 'messages' }: ChannelChatProps) => {
-  const inputContainer = document.getElementById('message-input');
+  const [mentionProfile, setMentionProfile] = useState<{
+    user: UserResponse;
+    position: { x: number; y: number };
+  }>();
 
   return (
     <div className="w-full h-full">
@@ -30,16 +34,22 @@ const ChannelChat = ({ channel, activeTab = 'messages' }: ChannelChatProps) => {
         channel={channel}
         DateSeparator={DateSeperator}
         giphyVersion="fixed_height"
+        onMentionsClick={(event, user) => {
+          if (!user) return;
+          const pointer = event.nativeEvent as MouseEvent;
+          setMentionProfile({
+            user,
+            position: { x: pointer.clientX, y: pointer.clientY },
+          });
+        }}
       >
         {activeTab === 'messages' ? (
           <>
             <Window>
               <MessageList Message={ChannelMessage} />
-              {inputContainer &&
-                createPortal(
-                  <MessageInput Input={InputContainer} />,
-                  inputContainer
-                )}
+              <div className="px-5 pb-2">
+                <MessageInput Input={InputContainer} />
+              </div>
             </Window>
             <Thread Message={ChannelMessage} Input={InputContainer} />
           </>
@@ -47,6 +57,13 @@ const ChannelChat = ({ channel, activeTab = 'messages' }: ChannelChatProps) => {
           <PinnedMessages channel={channel} />
         )}
       </Channel>
+      {mentionProfile && (
+        <MentionProfileCard
+          user={mentionProfile.user}
+          position={mentionProfile.position}
+          onClose={() => setMentionProfile(undefined)}
+        />
+      )}
     </div>
   );
 };

@@ -314,7 +314,7 @@ const Channel = ({ params }: ChannelProps) => {
               }}
               className="relative"
             >
-              <div className="absolute h-full inset-[0_-50px_0_0] overflow-y-scroll overflow-x-hidden z-[2]">
+              <div className="absolute inset-0 z-[2] overflow-hidden">
                 {/* Messages */}
                 {channelLoading && <ChannelLoading />}
                 {!channelLoading && (
@@ -323,14 +323,6 @@ const Channel = ({ params }: ChannelProps) => {
               </div>
             </div>
           </div>
-        </div>
-        {/* Footer */}
-        <div className="relative max-h-[calc(100%-36px)] flex flex-col -mt-2 px-5">
-          <div
-            id="message-input"
-            className={clsx('flex-1', activeTab !== 'messages' && 'hidden')}
-          ></div>
-          <div className="w-full flex items-center h-6 pl-3 pr-2"></div>
         </div>
       </div>
     </div>

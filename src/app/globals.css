@@ -210,15 +210,27 @@
 
   .channel .str-chat__channel {
     display: flex;
+    flex-direction: column;
     height: 100%;
     min-width: 0;
   }
 
+  .channel .str-chat__container {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    min-width: 0;
+    overflow: hidden;
+  }
+
   .channel .str-chat__main-panel {
+    flex: 1 1 auto;
+    width: auto;
     min-width: 0;
   }
 
-  .channel .str-chat__thread {
+  .channel .str-chat__thread-container.str-chat__thread {
+    flex: 0 0 min(390px, 42%);
     width: min(390px, 42%);
     min-width: 300px;
     border-left: 1px solid #797c814d;
@@ -226,7 +238,7 @@
   }
 
   @media (max-width: 700px) {
-    .channel .str-chat__thread {
+    .channel .str-chat__thread-container.str-chat__thread {
       position: absolute;
       inset: 0;
       z-index: 100;
@@ -247,6 +259,20 @@
   .channel .str-chat__li,
   .channel .str-chat__message-text {
     font-family: Lato, Arial, sans-serif;
+  }
+
+  .channel .str-chat__message-mention {
+    cursor: pointer;
+    border-radius: 3px;
+    background: #1264a3;
+    padding: 1px 3px;
+    color: #fff;
+    font-weight: 700;
+  }
+
+  .channel .str-chat__message-mention:hover {
+    background: #1d9bd1;
+    text-decoration: underline;
   }
 
   .channel .str-chat__list .str-chat__message-list-scroll {

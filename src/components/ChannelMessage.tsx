@@ -27,6 +27,9 @@ const ChannelMessage = () => {
   const { workspace, setSelectedProfile, presenceById } =
     useContext(AppContext);
   const user = session?.user;
+  const isMentioned = message.mentioned_users?.some(
+    (mentionedUser) => mentionedUser.id === user?.id
+  );
   const [pinning, setPinning] = useState(false);
   const messageRef = useRef<HTMLDivElement>(null);
 
@@ -154,7 +157,10 @@ const ChannelMessage = () => {
     <div
       ref={messageRef}
       id={`message-${message.id}`}
-      className="relative flex py-2 pl-5 pr-10 group/message hover:bg-[#22252a] target:bg-[#3b3151]"
+      className={clsx(
+        'relative flex border-l-[3px] border-l-transparent py-2 pl-[17px] pr-10 group/message hover:bg-[#22252a] target:bg-[#3b3151]',
+        isMentioned && 'border-l-[#a87ddb] bg-[#2b213d] hover:bg-[#322744]'
+      )}
     >
       {/* Image */}
       <div className="flex shrink-0 mr-2">

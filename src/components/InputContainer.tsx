@@ -52,7 +52,6 @@ import NumberedList from './icons/NumberedList';
 import Plus from './icons/Plus';
 import Quote from './icons/Quote';
 import Strikethrough from './icons/Strikethrough';
-import SlashBox from './icons/SlashBox';
 import Video from './icons/Video';
 import Send from './icons/Send';
 import CaretDown from './icons/CaretDown';
@@ -128,7 +127,6 @@ const InputContainer = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const emojiSelection = useRef<Range | null>(null);
   const [filesInfo, setFilesInfo] = useState<FileInfo[]>([]);
-  const [composerText, setComposerText] = useState('');
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionedUsers, setMentionedUsers] = useState<UserResponse[]>([]);
 
@@ -302,7 +300,6 @@ const InputContainer = () => {
         setFilesInfo([]);
         setMentionedUsers([]);
         setMentionQuery(null);
-        setComposerText('');
         removeAttachments(attachments.map((a) => a.localMetadata.id));
 
         const point = { path: [0, 0], offset: 0 };
@@ -319,8 +316,6 @@ const InputContainer = () => {
   };
 
   const updateComposerState = () => {
-    const text = Editor.string(editor, []);
-    setComposerText(text);
     if (!editor.selection || !Range.isCollapsed(editor.selection)) {
       setMentionQuery(null);
       return;
@@ -355,12 +350,6 @@ const InputContainer = () => {
       member,
     ]);
     setMentionQuery(null);
-    ReactEditor.focus(editor);
-  };
-
-  const insertGiphyCommand = () => {
-    Transforms.select(editor, []);
-    Transforms.insertText(editor, '/giphy ');
     ReactEditor.focus(editor);
   };
 
@@ -533,23 +522,6 @@ const InputContainer = () => {
                     ))}
                   </div>
                 )}
-                {composerText.startsWith('/') &&
-                  !composerText.includes('\n') &&
-                  '/giphy'.startsWith(composerText.split(' ')[0]) && (
-                    <button
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={insertGiphyCommand}
-                      className="absolute bottom-[84px] left-3 z-40 flex w-[min(360px,calc(100%-24px))] items-center gap-3 rounded-lg border border-[#797c814d] bg-[#1a1d21] px-3 py-2 text-left shadow-2xl hover:bg-[#25272b]"
-                    >
-                      <span className="rounded bg-[#1264a3] px-2 py-1 font-mono text-xs text-white">
-                        /giphy
-                      </span>
-                      <span className="text-sm text-[#d1d2d3]">
-                        Search and send a GIF
-                      </span>
-                    </button>
-                  )}
                 {/* File preview section */}
                 {filesInfo.length > 0 && (
                   <div className="relative mt-4 flex items-center gap-3 flex-wrap">
@@ -655,16 +627,6 @@ const InputContainer = () => {
                 className="hidden sm:inline-flex rounded hover:bg-[#d1d2d30b] [&_path]:hover:fill-channel-gray"
                 icon={<Microphone color="var(--icon-gray)" />}
               />
-              <div className="hidden sm:block separator h-5 w-[1px] mx-1.5 my-0.5 self-center flex-shrink-0 bg-[#e8e8e821]" />
-              <button
-                type="button"
-                aria-label="Insert slash command"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={insertGiphyCommand}
-                className="hidden sm:inline-flex rounded hover:bg-[#d1d2d30b] [&_path]:hover:fill-channel-gray"
-              >
-                <SlashBox color="var(--icon-gray)" />
-              </button>
             </div>
             <div className="flex items-center mr-0.5 ml-2 rounded h-7 border border-[#797c814d] text-[#e8e8e8b3] bg-[#007a5a] border-[#007a5a]">
               <button
