@@ -20,13 +20,13 @@ PulseChat is one trusted downstream OIDC client. Configure these variables on th
 BETTER_AUTH_URL=https://auth.example.com
 OIDC_CLIENT_ID=pulsechat-production
 OIDC_CLIENT_SECRET=replace-with-the-same-32-character-client-secret
-OIDC_REDIRECT_URI=https://chat.example.com/api/auth/callback/authy
+OIDC_REDIRECT_URI=https://chat.example.com/api/auth/oauth2/callback/authy
 OIDC_CLIENT_NAME=PulseChat
 OIDC_CLIENT_DESCRIPTION=Team chat
 OIDC_CLIENT_LAUNCH_URL=https://chat.example.com/sign-in
 ```
 
-The redirect URI must exactly match PulseChat's Better Auth callback, including scheme, host, port, path, and trailing-slash behavior. Authy supports one environment-configured downstream client at a time.
+The redirect URI must exactly match PulseChat's Better Auth callback, including scheme, host, port, path, and trailing-slash behavior.
 
 ## Deploy PulseChat
 
@@ -49,7 +49,7 @@ AUTHY_CLIENT_SECRET=replace-with-the-value-used-by-authy
 
 `AUTHY_ISSUER` must equal Authy's public `BETTER_AUTH_URL`. Do not use an internal container hostname in production because OIDC issuer validation requires the public origin.
 
-Open `BETTER_AUTH_URL` after both services are healthy. The sign-in button redirects to Authy and returns to `/api/auth/callback/authy`.
+Open `BETTER_AUTH_URL` after both services are healthy. The sign-in button redirects to Authy and returns to `/api/auth/oauth2/callback/authy`.
 
 Useful commands:
 
