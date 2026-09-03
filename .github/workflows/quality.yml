@@ -1,0 +1,33 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: mysql://pulsechat:test@127.0.0.1:3306/pulsechat
+      BETTER_AUTH_SECRET: ci-secret-at-least-32-characters-long
+      BETTER_AUTH_URL: http://127.0.0.1:3217
+      AUTHY_ISSUER: http://127.0.0.1:3218
+      AUTHY_CLIENT_ID: pulsechat-ci
+      AUTHY_CLIENT_SECRET: ci-client-secret-at-least-32-characters
+      NEXT_PUBLIC_STREAM_API_KEY: ci-stream-key
+      STREAM_API_SECRET: ci-stream-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+      - run: yarn format:check
+      - run: yarn lint
+      - run: yarn typecheck
+      - run: yarn build
+      - run: yarn playwright install --with-deps chromium
+      - run: yarn test:e2e
