@@ -1,8 +1,6 @@
-import Image from 'next/image';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import Button from '@/components/Button';
 import Navbar from '@/components/Navbar';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
@@ -143,62 +141,67 @@ export default async function Home() {
   }
 
   return (
-    <div className="font-lato min-h-screen text-white">
+    <div className="relative min-h-screen overflow-hidden bg-[#0d0f14] font-lato text-white">
+      <div className="pointer-events-none absolute left-[-12rem] top-20 h-[30rem] w-[30rem] rounded-full bg-[#6d5dfc]/10 blur-[100px]" />
+      <div className="pointer-events-none absolute right-[-10rem] top-[28rem] h-[24rem] w-[24rem] rounded-full bg-[#24b7a5]/[0.07] blur-[100px]" />
       <Navbar action={goToGetStartedPage} />
-      <section className="mt-9 max-w-[62.875rem] mx-auto px-[4vw]">
-        {/* Workspaces */}
-        <div className="flex items-center gap-1 mb-6">
-          <Image
-            src="https://a.slack-edge.com/6c404/marketing/img/homepage/bold-existing-users/waving-hand.gif"
-            width={52}
-            height={56}
-            alt="waving-hand"
-            unoptimized
-          />
-          <h1 className="text-[40px] sm:text-[55.5px] leading-[1.12] font-outfit font-semibold">
-            Welcome back
+      <main className="relative mx-auto max-w-6xl px-5 pb-16 pt-12 sm:px-8 sm:pt-16">
+        <div className="mb-10 max-w-2xl">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#6d5dfc]/30 bg-[#6d5dfc]/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-[#aaa2ff]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#8b7fff] shadow-[0_0_10px_#8b7fff]" />
+            Workspace hub
+          </div>
+          <h1 className="font-outfit text-4xl font-semibold leading-tight tracking-[-0.03em] sm:text-6xl">
+            Pick up where your
+            <span className="block text-[#8b7fff]">team left off.</span>
           </h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-[#9ba2b2]">
+            Choose a workspace to open your conversations, or start a new home
+            for your team.
+          </p>
         </div>
-        <div className="mb-12">
+        <div className="mb-8">
           {workspaces.length > 0 ? (
             <WorkspaceList
               title={`Workspaces for ${userEmail}`}
               workspaces={workspaces}
               action={launchChat}
-              actionText="Launch Slack"
+              actionText="Open workspace"
             />
           ) : (
-            <p className="text-lg font-bold pt-4">
-              You are not a member of any workspaces yet.
-            </p>
+            <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.025] px-6 py-12 text-center">
+              <p className="font-outfit text-xl font-bold">No workspaces yet</p>
+              <p className="mt-2 text-sm text-[#8e95a5]">
+                Create one below to start chatting with your team.
+              </p>
+            </div>
           )}
         </div>
-        {/* Create new workspace */}
-        <div className="rounded-[9px] mb-12 border-[#fff3] border-4">
-          <div className="flex flex-col sm:grid items-center bg-[#fff] p-4 grid-rows-[1fr] grid-cols-[200px_1fr_auto] rounded-[5px]">
-            <Image
-              src="https://a.slack-edge.com/613463e/marketing/img/homepage/bold-existing-users/create-new-workspace-module/woman-with-laptop-color-background.png"
-              width={200}
-              height={121}
-              className="rounded-[5px] m-[-1rem_-1rem_-47px]"
-              alt="woman-with-laptop"
-            />
-            <p className="mt-[50px] text-center sm:text-start mb-3 sm:my-0 pr-4 tracking-[.02em] text-[17.8px] text-black">
-              <strong>
-                {workspaces.length > 0
-                  ? 'Want to use Slack with a different team?'
-                  : 'Want to get started with Slack?'}
-              </strong>
+        <section className="mb-8 grid overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[#1d2030] to-[#171923] p-6 sm:grid-cols-[1fr_auto] sm:items-center sm:p-8">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#8277ff]">
+              Build a new space
             </p>
+            <h2 className="mt-2 font-outfit text-2xl font-bold">
+              Bring another team to PulseChat
+            </h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[#9ba2b2]">
+              Create channels, invite teammates, and keep every conversation in
+              one focused place.
+            </p>
+          </div>
+          <div className="mt-5 sm:ml-8 sm:mt-0">
             <form action={goToGetStartedPage}>
-              <Button type="submit" variant="secondary">
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-[#14161d] transition hover:bg-[#e8e9ed] sm:w-auto"
+              >
                 Create a new workspace
-              </Button>
+              </button>
             </form>
           </div>
-        </div>
-        {/* Invitations */}
-        <div className="mb-12">
+        </section>
+        <div className="mb-10">
           {processedInvitations.length > 0 && (
             <WorkspaceList
               title={`Invitations for ${userEmail}`}
@@ -209,11 +212,9 @@ export default async function Home() {
             />
           )}
         </div>
-        <SignOutButton className="flex flex-col sm:flex-row items-center justify-center mb-12 mx-auto">
-          <p className="mr-2 text-lg leading-[1.555] tracking-[-.0012em]">
-            Not seeing your workspace?
-          </p>
-          <span className="text-lg leading-[1.555] tracking-[.012em] text-[#36c5f0] ml-2 flex items-center gap-[9px]">
+        <SignOutButton className="mx-auto flex flex-col items-center justify-center rounded-lg px-4 py-2 text-[#9ba2b2] transition hover:bg-white/5 sm:flex-row">
+          <p className="text-sm sm:mr-2">Not seeing your workspace?</p>
+          <span className="ml-2 flex items-center gap-2 text-sm font-bold text-[#aaa2ff]">
             <span>Try using a different email</span>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -222,12 +223,12 @@ export default async function Home() {
             >
               <path
                 d="M1 6a.5.5 0 0 0 0 1V6zM12.854.646a.5.5 0 0 0-.708.708l.708-.708zM18 6.5l.354.354a.5.5 0 0 0 0-.708L18 6.5zm-5.854 5.146a.5.5 0 0 0 .708.708l-.708-.708zM1 7h16.5V6H1v1zm16.646-.854l-5.5 5.5.708.708 5.5-5.5-.708-.708zm-5.5-4.792l2.75 2.75.708-.708-2.75-2.75-.708.708zm2.75 2.75l2.75 2.75.708-.708-2.75-2.75-.708.708z"
-                fill="#36c5f0"
+                fill="currentColor"
               />
             </svg>
           </span>
         </SignOutButton>
-      </section>
+      </main>
     </div>
   );
 }
