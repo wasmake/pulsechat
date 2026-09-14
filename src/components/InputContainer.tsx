@@ -95,6 +95,22 @@ type FileInfo = {
   previewUrl?: string;
 };
 
+type MentionSuggestion =
+  | {
+      type: 'user';
+      id: string;
+      name: string;
+      email: string;
+      image: string | null;
+    }
+  | {
+      type: 'role';
+      id: string;
+      name: string;
+      color: string;
+      memberCount: number;
+    };
+
 const HOTKEYS: {
   [key: string]: string;
 } = {
@@ -132,6 +148,9 @@ const InputContainer = () => {
   const [filesInfo, setFilesInfo] = useState<FileInfo[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionedUsers, setMentionedUsers] = useState<UserResponse[]>([]);
+  const [mentionedRoles, setMentionedRoles] = useState<
+    Array<{ id: string; name: string; color: string }>
+  >([]);
   const lastComposerText = useRef('');
 
   const renderElement = useCallback(
@@ -151,15 +170,26 @@ const InputContainer = () => {
   const mentionSuggestions = useMemo(() => {
     if (mentionQuery === null) return [];
     const query = mentionQuery.toLowerCase();
-    return workspace.memberships
-      .map(({ user }) => user)
+    const roles: MentionSuggestion[] = workspace.roles
+      .filter((role) => role.name.toLowerCase().includes(query))
+      .map((role) => ({
+        type: 'role',
+        id: role.id,
+        name: role.name,
+        color: role.color,
+        memberCount: workspace.memberships.filter(
+          (membership) => membership.roleId === role.id
+        ).length,
+      }));
+    const users: MentionSuggestion[] = workspace.memberships
+      .map(({ user }) => ({ type: 'user' as const, ...user }))
       .filter(
         (member) =>
           member.name.toLowerCase().includes(query) ||
           member.email.toLowerCase().includes(query)
-      )
-      .slice(0, 6);
-  }, [mentionQuery, workspace.memberships]);
+      );
+    return [...roles, ...users].slice(0, 8);
+  }, [mentionQuery, workspace.memberships, workspace.roles]);
 
   const serializeToMarkdown = (nodes: Descendant[]) => {
     return nodes.map((n) => serializeNode(n)).join('\n');
@@ -292,21 +322,40 @@ const InputContainer = () => {
     const text = serializeToMarkdown(editor.children as Descendant[]);
     if (text || attachments.length > 0) {
       try {
+        const activeRoles = mentionedRoles.filter((role) =>
+          text.includes(`@${role.name}`)
+        );
+        const roleMemberIds = new Set(
+          workspace.memberships
+            .filter((membership) =>
+              activeRoles.some((role) => role.id === membership.roleId)
+            )
+            .map((membership) => membership.userId)
+        );
         const activeMentions = mentionedUsers.filter(
           (member) => member.name && text.includes(`@${member.name}`)
+        );
+        const roleMembers = workspace.memberships
+          .filter((membership) => roleMemberIds.has(membership.userId))
+          .map((membership) => membership.user);
+        const allMentionedUsers = [...activeMentions, ...roleMembers].filter(
+          (member, index, items) =>
+            items.findIndex((item) => item.id === member.id) === index
         );
         await sendMessage(
           {
             text,
             attachments,
-            mentioned_users: activeMentions,
+            mentioned_users: allMentionedUsers,
+            role_mentions: activeRoles,
             parent,
-          },
+          } as never,
           quotedMessage ? { quoted_message_id: quotedMessage.id } : undefined
         );
         await channel.stopTyping(parent?.id);
         setFilesInfo([]);
         setMentionedUsers([]);
+        setMentionedRoles([]);
         setMentionQuery(null);
         setQuotedMessage(undefined);
         lastComposerText.current = '';
@@ -354,12 +403,7 @@ const InputContainer = () => {
     [channel, parent?.id]
   );
 
-  const insertMention = (member: {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-  }) => {
+  const insertMention = (suggestion: MentionSuggestion) => {
     if (!editor.selection || mentionQuery === null) return;
     const start = Editor.before(editor, editor.selection.anchor, {
       distance: mentionQuery.length + 1,
@@ -370,11 +414,27 @@ const InputContainer = () => {
         at: { anchor: start, focus: editor.selection.anchor },
       });
     }
-    Transforms.insertText(editor, `@${member.name} `);
-    setMentionedUsers((current) => [
-      ...current.filter((item) => item.id !== member.id),
-      member,
-    ]);
+    Transforms.insertText(editor, `@${suggestion.name} `);
+    if (suggestion.type === 'user') {
+      setMentionedUsers((current) => [
+        ...current.filter((item) => item.id !== suggestion.id),
+        suggestion,
+      ]);
+    } else {
+      setMentionedRoles((current) => [
+        ...current.filter((item) => item.id !== suggestion.id),
+        suggestion,
+      ]);
+      const roleMembers = workspace.memberships
+        .filter((membership) => membership.roleId === suggestion.id)
+        .map((membership) => membership.user);
+      setMentionedUsers((current) =>
+        [...current, ...roleMembers].filter(
+          (member, index, items) =>
+            items.findIndex((item) => item.id === member.id) === index
+        )
+      );
+    }
     setMentionQuery(null);
     ReactEditor.focus(editor);
   };
@@ -422,7 +482,7 @@ const InputContainer = () => {
       initialValue={initialValue}
       onChange={updateComposerState}
     >
-      <div className="input-container relative rounded-md border border-[#565856] has-[:focus]:border-[#868686] bg-[#22252a]">
+      <div className="input-container relative overflow-visible rounded-xl border border-[#3f3f46] bg-[#09090b] shadow-sm transition-colors focus-within:border-[#71717a]">
         {quotedMessage && !parent && (
           <div className="flex items-center justify-between gap-3 border-b border-[#565856] px-3 py-2 text-xs text-[#b9babd]">
             <div className="min-w-0 border-l-2 border-[#5865f2] pl-2">
@@ -448,7 +508,7 @@ const InputContainer = () => {
         )}
         <div className="[&>.formatting]:has-[:focus]:opacity-100 [&>.formatting]:has-[:focus]:select-text flex flex-col">
           {/* Formatting */}
-          <div className="formatting opacity-30 flex p-1 w-full rounded-t-lg cursor-text">
+          <div className="formatting flex w-full cursor-text border-b border-[#27272a] p-1 opacity-60">
             <div className="flex grow h-[30px]">
               <Button
                 type="mark"
@@ -501,7 +561,7 @@ const InputContainer = () => {
           </div>
           {/* Input */}
           <div className="flex self-stretch cursor-text">
-            <div className="flex grow text-[14.8px] leading-[1.46668] px-3 py-2">
+            <div className="flex grow px-3 py-3 text-[14.8px] leading-[1.46668]">
               <div
                 style={{
                   scrollbarWidth: 'none',
@@ -511,8 +571,8 @@ const InputContainer = () => {
                 <Editable
                   renderElement={renderElement as never}
                   renderLeaf={renderLeaf}
-                  placeholder={`Mesage #${channelName}`}
-                  className="editable outline-none"
+                  placeholder={`Message #${channelName}`}
+                  className="editable min-h-[24px] text-[#e4e4e7] outline-none"
                   onPaste={handlePaste}
                   spellCheck
                   autoFocus
@@ -552,29 +612,40 @@ const InputContainer = () => {
                   }}
                 />
                 {mentionQuery !== null && mentionSuggestions.length > 0 && (
-                  <div className="absolute bottom-[84px] left-3 z-50 w-[min(360px,calc(100%-24px))] rounded-lg border border-[#797c814d] bg-[#1a1d21] p-1 shadow-2xl">
-                    <p className="px-2 py-1 text-xs font-bold text-[#ababad]">
-                      Mention someone
+                  <div className="absolute bottom-[92px] left-3 z-50 w-[min(380px,calc(100%-24px))] rounded-lg border border-[#27272a] bg-[#0f0f12] p-1.5 shadow-2xl">
+                    <p className="px-2 py-1.5 text-xs font-medium text-[#71717a]">
+                      Mention a person or role
                     </p>
-                    {mentionSuggestions.map((member) => (
+                    {mentionSuggestions.map((suggestion) => (
                       <button
-                        key={member.id}
+                        key={`${suggestion.type}-${suggestion.id}`}
                         type="button"
                         onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => insertMention(member)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-[#1264a3]"
+                        onClick={() => insertMention(suggestion)}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-[#27272a]"
                       >
-                        <Avatar
-                          width={26}
-                          borderRadius={6}
-                          fontSize={12}
-                          data={member}
-                        />
-                        <span className="truncate text-sm font-bold text-white">
-                          {member.name}
+                        {suggestion.type === 'user' ? (
+                          <Avatar
+                            width={28}
+                            borderRadius={7}
+                            fontSize={12}
+                            data={suggestion}
+                          />
+                        ) : (
+                          <span
+                            className="flex h-7 w-7 items-center justify-center rounded-md bg-[#27272a] text-sm font-semibold"
+                            style={{ color: suggestion.color }}
+                          >
+                            @
+                          </span>
+                        )}
+                        <span className="truncate text-sm font-medium text-[#e4e4e7]">
+                          {suggestion.name}
                         </span>
-                        <span className="truncate text-xs text-[#ababad]">
-                          {member.email}
+                        <span className="ml-auto truncate text-xs text-[#71717a]">
+                          {suggestion.type === 'user'
+                            ? suggestion.email
+                            : `${suggestion.memberCount} members`}
                         </span>
                       </button>
                     ))}
@@ -627,11 +698,11 @@ const InputContainer = () => {
             </div>
           </div>
           {/* Composer actions */}
-          <div className="flex items-center justify-between pl-1.5 pr-[5px] cursor-text rounded-b-lg h-[40px]">
+          <div className="flex h-11 cursor-text items-center justify-between border-t border-[#18181b] pl-2 pr-2">
             <div className="flex item-center">
               <button
                 onClick={handleUploadButtonClick}
-                className="w-7 h-7 p-0.5 m-0.5 flex items-center justify-center rounded-full hover:bg-[#565856]"
+                className="m-0.5 flex h-7 w-7 items-center justify-center rounded-md p-0.5 hover:bg-[#27272a]"
               >
                 <Plus size={18} color="var(--icon-gray)" />
                 <input
@@ -686,30 +757,26 @@ const InputContainer = () => {
                 icon={<Microphone color="var(--icon-gray)" />}
               />
             </div>
-            <div className="flex items-center mr-0.5 ml-2 rounded h-7 border border-[#797c814d] text-[#e8e8e8b3] bg-[#007a5a] border-[#007a5a]">
+            <div className="ml-2 mr-0.5 flex h-8 items-center rounded-md bg-[#fafafa] text-[#18181b]">
               <button
                 onClick={handleSubmit}
                 disabled={!!cooldownRemaining}
-                className="px-2 h-[28px] rounded-l hover:bg-[#148567]"
+                className="h-8 rounded-l-md px-2 hover:bg-[#e4e4e7]"
               >
                 <Send
                   color={
-                    !Boolean(cooldownRemaining)
-                      ? 'var(--primary)'
-                      : 'var(--icon-gray)'
+                    !Boolean(cooldownRemaining) ? '#18181b' : 'var(--icon-gray)'
                   }
                   size={16}
                   filled
                 />
               </button>
-              <div className="cursor-pointer h-5 w-[1px] bg-[#ffffff80]" />
-              <button className="w-[22px] flex items-center justify-center h-[26px] rounded-r hover:bg-[#148567]">
+              <div className="h-5 w-px cursor-pointer bg-[#a1a1aa]" />
+              <button className="flex h-8 w-[22px] items-center justify-center rounded-r-md hover:bg-[#e4e4e7]">
                 <CaretDown
                   size={16}
                   color={
-                    !Boolean(cooldownRemaining)
-                      ? 'var(--primary)'
-                      : 'var(--icon-gray)'
+                    !Boolean(cooldownRemaining) ? '#18181b' : 'var(--icon-gray)'
                   }
                 />
               </button>

@@ -20,6 +20,7 @@ import Pin from '@/components/icons/Pin';
 import Plus from '@/components/icons/Plus';
 import User from '@/components/icons/User';
 import { useSession } from '@/lib/auth-client';
+import AddChannelModal from '@/components/AddChannelModal';
 
 interface ChannelProps {
   params: {
@@ -65,6 +66,8 @@ const Channel = ({ params }: ChannelProps) => {
   const [channelLoading, setChannelLoading] = useState(true);
   const [pageWidth, setPageWidth] = useState(0);
   const [activeTab, setActiveTab] = useState<'messages' | 'pins'>('messages');
+  const [channelEditorOpen, setChannelEditorOpen] = useState(false);
+  const [channelMenuOpen, setChannelMenuOpen] = useState(false);
   const layoutRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -199,6 +202,21 @@ const Channel = ({ params }: ChannelProps) => {
   const conversationDescription = isDm
     ? dmMember?.user.email
     : displayChannel?.description;
+  const currentMembership = workspace.memberships.find(
+    (membership) => membership.userId === user?.id
+  );
+  let rolePermissions: string[] = [];
+  try {
+    rolePermissions = JSON.parse(
+      currentMembership?.workspaceRole?.permissions || '[]'
+    );
+  } catch {
+    rolePermissions = [];
+  }
+  const canManageChannels =
+    workspace.ownerId === user?.id ||
+    currentMembership?.role?.toLowerCase() === 'admin' ||
+    rolePermissions.includes('manage_channels');
 
   return (
     <div
@@ -206,9 +224,17 @@ const Channel = ({ params }: ChannelProps) => {
       className="channel z-100 flex h-full w-full flex-col overflow-hidden bg-[#0f0f12] font-lato text-[#d4d4d8]"
     >
       {/* Toolbar */}
-      <div className="flex h-[49px] flex-shrink-0 items-center justify-between border-b border-[#27272a] px-3 pl-4">
+      <div className="relative flex h-[49px] flex-shrink-0 items-center justify-between border-b border-[#27272a] px-3 pl-4">
         <div className="flex flex-[1_1_0] items-center min-w-0">
-          <button className="min-w-[96px] px-2 py-[3px] -ml-1 mr-2 flex flex-[0_auto] items-center text-[17.8px] rounded-md text-channel-gray hover:bg-[#d1d2d30b] leading-[1.33334]">
+          <button
+            type="button"
+            onClick={() => {
+              if (!isDm && canManageChannels) setChannelEditorOpen(true);
+            }}
+            disabled={isDm || !canManageChannels}
+            title={!isDm && canManageChannels ? 'Edit channel' : undefined}
+            className="-ml-1 mr-2 flex min-w-[96px] flex-[0_auto] items-center rounded-md px-2 py-1 text-base leading-[1.33334] text-[#e4e4e7] hover:bg-[#27272a] disabled:cursor-default disabled:hover:bg-transparent"
+          >
             <span className="mr-1 align-text-bottom">
               {isDm ? (
                 <User color="var(--channel-gray)" size={18} />
@@ -216,7 +242,7 @@ const Channel = ({ params }: ChannelProps) => {
                 <Hash color="var(--channel-gray)" size={18} />
               )}
             </span>
-            <span className="truncate font-[900]">{conversationName}</span>
+            <span className="truncate font-semibold">{conversationName}</span>
           </button>
           <div
             className={clsx(
@@ -259,19 +285,52 @@ const Channel = ({ params }: ChannelProps) => {
               </button>
             </div>
           )}
-          <button className="group rounded-lg flex w-7 h-7 ml-2 items-center justify-center hover:bg-[#d1d2d30b]">
+          <button
+            type="button"
+            onClick={() => setChannelMenuOpen((current) => !current)}
+            aria-expanded={channelMenuOpen}
+            aria-label="Channel options"
+            className="group ml-2 flex h-7 w-7 items-center justify-center rounded-md hover:bg-[#27272a]"
+          >
             <MoreVert className="fill-[#e8e8e8b3] group-hover:fill-channel-gray" />
           </button>
         </div>
+        {channelMenuOpen && (
+          <div className="absolute right-3 top-11 z-50 w-48 rounded-lg border border-[#27272a] bg-[#0f0f12] p-1.5 text-sm text-[#d4d4d8] shadow-2xl">
+            {canManageChannels && !isDm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setChannelMenuOpen(false);
+                  setChannelEditorOpen(true);
+                }}
+                className="w-full rounded-md px-3 py-2 text-left hover:bg-[#27272a] hover:text-[#fafafa]"
+              >
+                Edit channel
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(location.href);
+                setChannelMenuOpen(false);
+              }}
+              className="w-full rounded-md px-3 py-2 text-left hover:bg-[#27272a] hover:text-[#fafafa]"
+            >
+              Copy channel link
+            </button>
+          </div>
+        )}
       </div>
       {/* Tab Bar */}
-      <div className="w-full min-w-full max-w-full h-[38px] flex items-center pl-4 pr-3 shadow-[inset_0_-1px_0_0_#797c814d] gap-1">
+      <div className="flex h-10 w-full min-w-full max-w-full items-center gap-1 border-b border-[#27272a] px-4">
         <button
           type="button"
           onClick={() => setActiveTab('messages')}
           className={clsx(
-            'flex items-center cursor-pointer w-[92.45px] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray',
-            activeTab === 'messages' && 'border-b-[2px] border-white'
+            'flex h-full cursor-pointer items-center gap-1 rounded-sm px-2 text-center text-sm font-medium text-[#a1a1aa] hover:text-[#fafafa]',
+            activeTab === 'messages' &&
+              'border-b-2 border-[#fafafa] text-[#fafafa]'
           )}
         >
           <Message color="var(--primary)" />
@@ -279,7 +338,7 @@ const Channel = ({ params }: ChannelProps) => {
         </button>
         <button
           type="button"
-          className="group flex items-center cursor-pointer text-[#b9babd] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray hover:text-white"
+          className="group flex h-full cursor-pointer items-center gap-1 rounded-sm px-2 text-center text-sm font-medium text-[#71717a] hover:text-[#fafafa]"
         >
           <Files className="fill-icon-gray group-hover:fill-white" size={16} />
           Files
@@ -288,8 +347,8 @@ const Channel = ({ params }: ChannelProps) => {
           type="button"
           onClick={() => setActiveTab('pins')}
           className={clsx(
-            'group flex items-center cursor-pointer text-[#b9babd] h-full p-2 gap-1 text-[13px] leading-[1.38463] text-center font-bold rounded-t-lg hover:bg-hover-gray hover:text-white',
-            activeTab === 'pins' && 'border-b-[2px] border-white text-white'
+            'group flex h-full cursor-pointer items-center gap-1 rounded-sm px-2 text-center text-sm font-medium text-[#a1a1aa] hover:text-[#fafafa]',
+            activeTab === 'pins' && 'border-b-2 border-[#fafafa] text-[#fafafa]'
           )}
         >
           <Pin className="fill-icon-gray group-hover:fill-white" size={16} />
@@ -325,6 +384,13 @@ const Channel = ({ params }: ChannelProps) => {
           </div>
         </div>
       </div>
+      {!isDm && displayChannel && canManageChannels && (
+        <AddChannelModal
+          open={channelEditorOpen}
+          onClose={() => setChannelEditorOpen(false)}
+          channel={displayChannel}
+        />
+      )}
     </div>
   );
 };

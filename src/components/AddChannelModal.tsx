@@ -1,4 +1,5 @@
-import { FormEvent, useContext, useMemo, useState } from 'react';
+import { FormEvent, useContext, useEffect, useMemo, useState } from 'react';
+import type { Channel } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 
 import { AppContext } from '../app/client/layout';
@@ -9,19 +10,30 @@ import TextField from './TextField';
 interface AddChannelModalProps {
   open: boolean;
   onClose: () => void;
+  channel?: Channel;
 }
 
-const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
+const AddChannelModal = ({ open, onClose, channel }: AddChannelModalProps) => {
   const router = useRouter();
   const { setChannel, workspace, setWorkspace } = useContext(AppContext);
   const [channelName, setChannelName] = useState('');
   const [channelDescription, setChannelDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setChannelName(channel?.name || '');
+    setChannelDescription(channel?.description || '');
+    setError('');
+  }, [channel, open]);
 
   const channelNameRegex = useMemo(() => {
-    const channelNames = workspace.channels.map((channel) => channel.name);
+    const channelNames = workspace.channels
+      .filter((item) => item.id !== channel?.id)
+      .map((item) => item.name);
     return `^(?!${channelNames.join('|')}).+$`;
-  }, [workspace.channels]);
+  }, [channel?.id, workspace.channels]);
 
   const createChannel = async (e: FormEvent) => {
     const regex = new RegExp(channelNameRegex);
@@ -29,10 +41,13 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
       e.stopPropagation();
       try {
         setLoading(true);
+        setError('');
         const response = await fetch(
-          `/api/workspaces/${workspace.id}/channels/create`,
+          channel
+            ? `/api/workspaces/${workspace.id}/channels/${channel.id}`
+            : `/api/workspaces/${workspace.id}/channels/create`,
           {
-            method: 'POST',
+            method: channel ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               name: channelName.trim(),
@@ -44,21 +59,26 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
         const result = await response.json();
 
         if (response.ok) {
-          const { channel } = result;
+          const savedChannel = result.channel;
           setWorkspace({
             ...workspace,
-            channels: [...workspace.channels, { ...channel }],
+            channels: channel
+              ? workspace.channels.map((item) =>
+                  item.id === channel.id ? savedChannel : item
+                )
+              : [...workspace.channels, savedChannel],
           });
-          setChannel(channel);
+          setChannel(savedChannel);
           setLoading(false);
           closeModal();
-          router.push(`/client/${workspace.id}/${channel.id}`);
+          if (!channel)
+            router.push(`/client/${workspace.id}/${savedChannel.id}`);
         } else {
-          alert(`Error: ${result.error}`);
+          setError(result.error || 'Unable to save channel');
         }
       } catch (error) {
         console.error('Error creating workspace:', error);
-        alert('An unexpected error occurred.');
+        setError('An unexpected error occurred.');
       } finally {
         setLoading(false);
       }
@@ -78,7 +98,7 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
       open={open}
       onClose={closeModal}
       loading={loading}
-      title="Create a channel"
+      title={channel ? 'Edit channel' : 'Create a channel'}
     >
       <form
         onSubmit={createChannel}
@@ -110,18 +130,26 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
           multiline={5}
           maxLength={250}
         />
+        {error && (
+          <p
+            role="alert"
+            className="rounded-md bg-red-950/40 px-3 py-2 text-sm text-[#fca5a5]"
+          >
+            {error}
+          </p>
+        )}
         <div className="w-full flex items-center justify-end gap-3">
           <button
             type="submit"
-            onClick={createChannel}
-            className="order-2 flex items-center justify-center min-w-[80px] h-[36px] px-3 pb-[1px] text-[15px] border border-[#00553d] bg-[#00553d] hover:shadow-[0_1px_4px_#0000004d] hover:bg-blend-lighten hover:bg-[linear-gradient(#d8f5e914,#d8f5e914)] font-bold select-none text-white rounded-lg"
+            className="order-2 flex h-9 min-w-[80px] items-center justify-center rounded-md bg-[#fafafa] px-3 text-sm font-medium text-[#18181b] hover:bg-[#e4e4e7]"
             disabled={loading}
           >
             {loading ? <Spinner /> : 'Save'}
           </button>
           <button
             onClick={closeModal}
-            className="min-w-[80px] h-[36px] px-3 pb-[1px] text-[15px] border border-[#797c8180] font-bold select-none text-white rounded-lg"
+            type="button"
+            className="h-9 min-w-[80px] rounded-md border border-[#3f3f46] bg-[#18181b] px-3 text-sm font-medium text-[#e4e4e7] hover:bg-[#27272a]"
             disabled={loading}
           >
             Cancel

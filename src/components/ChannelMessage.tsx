@@ -34,6 +34,12 @@ const ChannelMessage = () => {
   const isMentioned = message.mentioned_users?.some(
     (mentionedUser) => mentionedUser.id === user?.id
   );
+  const roleMentions =
+    (
+      message as unknown as {
+        role_mentions?: Array<{ id: string; name: string; color: string }>;
+      }
+    ).role_mentions || [];
   const [pinning, setPinning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -150,23 +156,29 @@ const ChannelMessage = () => {
     if (!message.user?.id) return;
     const member = workspace.memberships.find(
       (item) => item.userId === message.user?.id
-    )?.user;
+    );
     setSelectedProfile({
       ...presenceById[message.user.id],
       id: message.user.id,
       name:
         presenceById[message.user.id]?.name ||
         message.user.name ||
-        member?.name ||
+        member?.user.name ||
         'Member',
-      email: member?.email,
+      email: member?.user.email,
       image:
         presenceById[message.user.id]?.image ||
         (typeof message.user.image === 'string'
           ? message.user.image
-          : member?.image),
+          : member?.user.image),
       online: presenceById[message.user.id]?.online ?? message.user.online,
       lastActive: presenceById[message.user.id]?.lastActive,
+      role: member?.workspaceRole
+        ? {
+            name: member.workspaceRole.name,
+            color: member.workspaceRole.color,
+          }
+        : null,
     });
   };
 
@@ -234,13 +246,13 @@ const ChannelMessage = () => {
       ref={messageRef}
       id={`message-${message.id}`}
       className={clsx(
-        'relative flex border-l-[3px] border-l-transparent py-2 pl-[17px] pr-10 group/message hover:bg-[#22252a] target:bg-[#3b3151]',
-        isMentioned && 'border-l-[#a87ddb] bg-[#2b213d] hover:bg-[#322744]'
+        'group/message relative flex border-l-2 border-l-transparent px-4 py-2.5 pr-12 hover:bg-[#18181b] target:bg-[#27272a]',
+        isMentioned && 'border-l-[#fafafa] bg-[#18181b] hover:bg-[#202024]'
       )}
     >
       {/* Image */}
       <div className="flex shrink-0 mr-2">
-        <span className="w-fit h-fit inline-flex">
+        <span className="inline-flex h-fit w-fit">
           <button
             type="button"
             onClick={openProfile}
@@ -270,7 +282,7 @@ const ChannelMessage = () => {
           <button
             type="button"
             onClick={openProfile}
-            className="cursor-pointer text-[15px] leading-[1.46668] font-[900] text-white hover:underline"
+            className="cursor-pointer text-[15px] font-semibold leading-[1.46668] text-[#fafafa] hover:underline"
           >
             {message.user?.name}
           </button>
@@ -296,6 +308,19 @@ const ChannelMessage = () => {
                         : 'Message')}
                   </span>
                 </a>
+              )}
+              {roleMentions.length > 0 && (
+                <div className="mb-1.5 flex flex-wrap gap-1.5">
+                  {roleMentions.map((role) => (
+                    <span
+                      key={role.id}
+                      className="rounded-md border border-[#3f3f46] bg-[#27272a] px-1.5 py-0.5 text-xs font-medium"
+                      style={{ color: role.color }}
+                    >
+                      @{role.name}
+                    </span>
+                  ))}
+                </div>
               )}
               <MessageText
                 renderText={(text, mentionedUsers) =>

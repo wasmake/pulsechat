@@ -33,31 +33,36 @@ const ProfileView = ({
         : 'Status unavailable';
 
   return (
-    <aside className="fixed bottom-1 right-1 top-10 z-[8000] flex w-[min(380px,calc(100vw-8px))] flex-col overflow-hidden rounded-lg border border-[#797c814d] bg-[#1a1d21] text-white shadow-2xl">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#797c814d] px-5">
-        <h2 className="text-lg font-bold">Profile</h2>
+    <aside className="fixed bottom-0 right-0 top-14 z-[8000] flex w-[min(360px,100vw)] flex-col overflow-hidden border-l border-[#27272a] bg-[#0f0f12] text-[#fafafa] shadow-2xl">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#27272a] px-5">
+        <div>
+          <h2 className="font-outfit text-base font-semibold">Profile</h2>
+          <p className="text-xs text-[#71717a]">Workspace member</p>
+        </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close profile"
-          className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-hover-gray"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-[#a1a1aa] hover:bg-[#27272a] hover:text-[#fafafa]"
         >
           <Close size={20} color="var(--primary)" />
         </button>
       </header>
       <div className="overflow-y-auto">
-        <div className="p-5">
-          <Avatar
-            width={180}
-            borderRadius={14}
-            fontSize={64}
-            fontWeight={700}
-            data={user}
-          />
-          <div className="mt-5 flex items-start justify-between gap-4">
+        <div className="border-b border-[#27272a] p-5">
+          <div className="flex items-center gap-4">
+            <Avatar
+              width={88}
+              borderRadius={16}
+              fontSize={32}
+              fontWeight={700}
+              data={user}
+            />
             <div className="min-w-0">
-              <h3 className="truncate text-[22px] font-black">{user.name}</h3>
-              <p className="mt-1 flex items-center gap-2 text-sm text-[#b9babd]">
+              <h3 className="truncate font-outfit text-xl font-semibold">
+                {user.name}
+              </h3>
+              <p className="mt-1 flex items-center gap-2 text-sm text-[#a1a1aa]">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
                     user.online === true
@@ -67,37 +72,47 @@ const ProfileView = ({
                 />
                 {statusLabel}
               </p>
+              {user.role && (
+                <span
+                  className="mt-2 inline-flex rounded-md border border-[#3f3f46] bg-[#18181b] px-2 py-0.5 text-xs font-medium"
+                  style={{ color: user.role.color }}
+                >
+                  {user.role.name}
+                </span>
+              )}
             </div>
+          </div>
+          <div className="mt-5 flex gap-2">
             {isCurrentUser && (
               <button
                 type="button"
                 onClick={onEdit}
-                className="rounded-md border border-[#797c814d] px-3 py-1.5 text-sm font-bold hover:bg-hover-gray"
+                className="w-full rounded-md border border-[#3f3f46] bg-[#18181b] px-3 py-2 text-sm font-medium hover:bg-[#27272a]"
               >
                 Edit
               </button>
             )}
+            {!isCurrentUser && workspaceId && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  router.push(`/client/${workspaceId}/dm-${user.id}`);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-[#fafafa] px-4 py-2 text-sm font-medium text-[#18181b] hover:bg-[#e4e4e7]"
+              >
+                <Messages color="#18181b" />
+                Message
+              </button>
+            )}
           </div>
-          {!isCurrentUser && workspaceId && (
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                router.push(`/client/${workspaceId}/dm-${user.id}`);
-              }}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-[#007a5a] px-4 py-2 font-bold hover:bg-[#148567]"
-            >
-              <Messages color="var(--primary)" />
-              Message
-            </button>
-          )}
         </div>
-        <div className="border-t border-[#797c814d] px-5 py-4">
-          <h4 className="text-sm font-bold">Contact information</h4>
-          <p className="mt-3 text-xs font-bold uppercase tracking-wide text-[#777a80]">
+        <div className="p-5">
+          <h4 className="text-sm font-medium">Contact information</h4>
+          <p className="mt-4 text-xs font-medium text-[#71717a]">
             Email address
           </p>
-          <p className="mt-1 break-words text-sm text-[#1d9bd1]">
+          <p className="mt-1 break-words text-sm text-[#d4d4d8]">
             {user.email || 'Not shared'}
           </p>
         </div>

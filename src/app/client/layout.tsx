@@ -60,6 +60,7 @@ export type ProfileUser = {
   image?: string | null;
   online?: boolean;
   lastActive?: string;
+  role?: { name: string; color: string } | null;
 };
 
 export type ActivityItem = {
@@ -527,7 +528,11 @@ const Layout = ({ children }: LayoutProps) => {
             <ProfileView
               user={
                 selectedProfile
-                  ? presenceById[selectedProfile.id] || selectedProfile
+                  ? {
+                      ...selectedProfile,
+                      ...presenceById[selectedProfile.id],
+                      role: selectedProfile.role,
+                    }
                   : null
               }
               currentUserId={user.id}

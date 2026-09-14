@@ -31,6 +31,9 @@ const UserSettingsModal = ({
 
   useEffect(() => {
     setName(user.name);
+    setAvatar(undefined);
+    setPreview(undefined);
+    setError('');
   }, [user.name, open]);
 
   useEffect(
@@ -56,17 +59,25 @@ const UserSettingsModal = ({
     const form = new FormData();
     form.set('name', name);
     if (avatar) form.set('avatar', avatar);
-    const response = await fetch('/api/users/me', {
-      method: 'PATCH',
-      body: form,
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(body.error || 'Unable to update your profile');
+    try {
+      const response = await fetch('/api/users/me', {
+        method: 'PATCH',
+        body: form,
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to update your profile');
+      }
+      location.reload();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Unable to update your profile'
+      );
+    } finally {
       setSaving(false);
-      return;
     }
-    location.reload();
   };
 
   return (
@@ -76,17 +87,17 @@ const UserSettingsModal = ({
       title="Profile & settings"
       loading={saving}
     >
-      <form onSubmit={save} className="flex flex-col gap-6 text-white">
-        <div className="flex items-center gap-5 rounded-xl bg-[#22252a] p-4">
+      <form onSubmit={save} className="flex flex-col gap-5 text-[#fafafa]">
+        <div className="flex items-center gap-4 rounded-lg border border-[#27272a] bg-[#09090b] p-4">
           <Avatar
-            width={72}
-            borderRadius={14}
-            fontSize={28}
+            width={64}
+            borderRadius={12}
+            fontSize={24}
             fontWeight={700}
             data={{ name, image: preview || user.image || undefined }}
           />
           <div>
-            <label className="inline-flex cursor-pointer rounded-md border border-[#797c814d] px-3 py-2 text-sm font-bold hover:bg-hover-gray">
+            <label className="inline-flex cursor-pointer rounded-md border border-[#3f3f46] bg-[#18181b] px-3 py-2 text-sm font-medium hover:bg-[#27272a]">
               Upload a photo
               <input
                 type="file"
@@ -95,38 +106,43 @@ const UserSettingsModal = ({
                 onChange={selectAvatar}
               />
             </label>
-            <p className="mt-2 text-xs text-[#ababad]">
+            <p className="mt-2 text-xs text-[#71717a]">
               JPG, PNG, WebP or GIF. Max 5 MB.
             </p>
           </div>
         </div>
-        <label className="flex flex-col gap-2 text-sm font-bold">
+        <label className="flex flex-col gap-2 text-sm font-medium text-[#e4e4e7]">
           Display name
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={80}
             required
-            className="h-10 rounded-md border border-[#797c814d] bg-[#1a1d21] px-3 font-normal outline-none focus:border-[#1d9bd1]"
+            className="h-10 rounded-md border border-[#3f3f46] bg-[#09090b] px-3 font-normal outline-none focus:border-[#71717a]"
           />
         </label>
         <div>
-          <p className="text-sm font-bold">Email address</p>
-          <p className="mt-2 text-sm text-[#b9babd]">{user.email}</p>
-          <p className="mt-1 text-xs text-[#777a80]">
+          <p className="text-sm font-medium text-[#e4e4e7]">Email address</p>
+          <p className="mt-2 rounded-md border border-[#27272a] bg-[#09090b] px-3 py-2 text-sm text-[#a1a1aa]">
+            {user.email}
+          </p>
+          <p className="mt-1.5 text-xs text-[#71717a]">
             Managed by your Authy account.
           </p>
         </div>
         {error && (
-          <p role="alert" className="text-sm text-[#ff9b9b]">
+          <p
+            role="alert"
+            className="rounded-md bg-red-950/40 px-3 py-2 text-sm text-[#fca5a5]"
+          >
             {error}
           </p>
         )}
-        <div className="flex items-center justify-between border-t border-[#797c814d] pt-5">
+        <div className="flex items-center justify-between border-t border-[#27272a] pt-5">
           <button
             type="button"
             onClick={onSignOut}
-            className="rounded-md px-3 py-2 text-sm font-bold text-[#ff9b9b] hover:bg-hover-gray"
+            className="rounded-md px-3 py-2 text-sm font-medium text-[#f87171] hover:bg-red-950/40"
           >
             Sign out
           </button>
@@ -134,14 +150,14 @@ const UserSettingsModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md px-4 py-2 text-sm font-bold hover:bg-hover-gray"
+              className="rounded-md border border-[#3f3f46] bg-[#18181b] px-4 py-2 text-sm font-medium hover:bg-[#27272a]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md bg-[#007a5a] px-4 py-2 text-sm font-bold hover:bg-[#148567] disabled:opacity-60"
+              className="rounded-md bg-[#fafafa] px-4 py-2 text-sm font-medium text-[#18181b] hover:bg-[#e4e4e7] disabled:opacity-60"
             >
               {saving ? 'Saving...' : 'Save changes'}
             </button>

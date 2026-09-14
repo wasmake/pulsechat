@@ -24,6 +24,11 @@
 }
 
 @layer components {
+  .input-container [data-slate-placeholder='true'] {
+    color: #71717a !important;
+    opacity: 1 !important;
+  }
+
   .client ::selection {
     background: #7d7e81;
   }

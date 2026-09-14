@@ -29,11 +29,22 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { name, description } = body;
+    const name =
+      typeof body.name === 'string' ? body.name.trim().toLowerCase() : '';
+    const description =
+      typeof body.description === 'string' ? body.description.trim() : '';
 
-    if (!name || typeof name !== 'string' || name.trim() === '') {
+    if (!/^[a-z0-9][a-z0-9-_]{0,79}$/.test(name)) {
       return NextResponse.json(
-        { error: 'Channel name is required' },
+        {
+          error: 'Use 1–80 lowercase letters, numbers, hyphens, or underscores',
+        },
+        { status: 400 }
+      );
+    }
+    if (description.length > 250) {
+      return NextResponse.json(
+        { error: 'Description is too long' },
         { status: 400 }
       );
     }
