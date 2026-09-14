@@ -102,7 +102,12 @@ const ChannelMessage = () => {
   const { message, handleOpenThread, threadList } = useMessageContext();
   const router = useRouter();
   const { channel } = useChannelStateContext('ChannelMessage');
-  const { setQuotedMessage } = useChannelActionContext('ChannelMessage');
+  const {
+    addNotification,
+    deleteMessage: deleteStreamMessage,
+    removeMessage,
+    setQuotedMessage,
+  } = useChannelActionContext('ChannelMessage');
   const { data: session } = useSession();
   const {
     workspace,
@@ -135,6 +140,7 @@ const ChannelMessage = () => {
   const [pinning, setPinning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const messageRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const isAuthor = message.user?.id === user?.id;
@@ -279,8 +285,16 @@ const ChannelMessage = () => {
     if (!window.confirm('Delete this message?')) return;
     setDeleting(true);
     try {
-      await channel.getClient().deleteMessage(message.id);
+      await deleteStreamMessage(message);
+      setDeleted(true);
+      removeMessage(message);
       setMenuOpen(false);
+    } catch (error) {
+      console.error('Unable to delete message', error);
+      addNotification(
+        'Unable to delete this message. Please try again.',
+        'error'
+      );
     } finally {
       setDeleting(false);
     }
@@ -345,6 +359,8 @@ const ChannelMessage = () => {
     setSelectedChannel(selectedChannel);
     router.push(`/client/${workspace.id}/${selectedChannel.id}`);
   };
+
+  if (deleted || message.deleted_at || message.type === 'deleted') return null;
 
   return (
     <div
