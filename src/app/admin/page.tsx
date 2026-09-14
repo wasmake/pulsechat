@@ -5,13 +5,6 @@ import AdminPanel, { AdminWorkspace } from '@/components/AdminPanel';
 import { isSuperAdmin } from '@/lib/admin';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import {
-  inviteUser,
-  removeMember,
-  revokeInvitation,
-  updateMemberRole,
-  updateWorkspace,
-} from './actions';
 
 const getSession = () => auth.api.getSession({ headers: headers() });
 
@@ -75,11 +68,6 @@ export default async function AdminPage() {
     <AdminPanel
       currentUser={{ name: session.user.name, email: session.user.email }}
       workspaces={workspaces}
-      updateWorkspace={updateWorkspace}
-      inviteUser={inviteUser}
-      updateMemberRole={updateMemberRole}
-      removeMember={removeMember}
-      revokeInvitation={revokeInvitation}
     />
   );
 }

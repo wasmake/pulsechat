@@ -5,6 +5,13 @@ import { useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 
 import Avatar from './Avatar';
+import {
+  inviteUser,
+  removeMember,
+  revokeInvitation,
+  updateMemberRole,
+  updateWorkspace,
+} from '@/app/admin/actions';
 
 export type AdminWorkspace = {
   id: string;
@@ -25,8 +32,6 @@ export type AdminWorkspace = {
   }[];
 };
 
-type Action = (formData: FormData) => Promise<void>;
-
 const SubmitButton = ({ children }: { children: React.ReactNode }) => {
   const { pending } = useFormStatus();
   return (
@@ -43,19 +48,9 @@ const SubmitButton = ({ children }: { children: React.ReactNode }) => {
 const AdminPanel = ({
   currentUser,
   workspaces,
-  updateWorkspace,
-  inviteUser,
-  updateMemberRole,
-  removeMember,
-  revokeInvitation,
 }: {
   currentUser: { name: string; email: string };
   workspaces: AdminWorkspace[];
-  updateWorkspace: Action;
-  inviteUser: Action;
-  updateMemberRole: Action;
-  removeMember: Action;
-  revokeInvitation: Action;
 }) => {
   const [activeId, setActiveId] = useState(workspaces[0].id);
   const [query, setQuery] = useState('');
