@@ -420,8 +420,23 @@ const InputContainer = () => {
           {
             text: rawText,
             attachments,
-            mentioned_users: allMentionedUsers,
-            role_mentions: activeRoles,
+            mentioned_users: allMentionedUsers.map((member) => ({
+              id: member.id,
+              name: member.name || undefined,
+              image:
+                typeof member.image === 'string' ? member.image : undefined,
+            })),
+            parent,
+          },
+          {
+            ...(quotedMessage
+              ? { quoted_message_id: quotedMessage.id }
+              : undefined),
+            role_mentions: activeRoles.map(({ id, name, color }) => ({
+              id,
+              name,
+              color,
+            })),
             special_mentions: activeSpecials.map(({ id, name }) => ({
               id,
               name,
@@ -430,9 +445,7 @@ const InputContainer = () => {
               id,
               name,
             })),
-            parent,
-          } as never,
-          quotedMessage ? { quoted_message_id: quotedMessage.id } : undefined
+          } as never
         );
         await channel.stopTyping(parent?.id);
         setFilesInfo([]);

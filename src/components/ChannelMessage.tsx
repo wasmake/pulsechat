@@ -131,12 +131,37 @@ const ChannelMessage = () => {
         special_mentions?: Array<{ id: string; name: string }>;
       }
     ).special_mentions || [];
-  const channelMentions =
-    (
-      message as unknown as {
-        channel_mentions?: ChannelMention[];
+  const channelMentions = useMemo(
+    () =>
+      (
+        message as unknown as {
+          channel_mentions?: ChannelMention[];
+        }
+      ).channel_mentions || [],
+    [message]
+  );
+  const resolvedChannelMentions = useMemo(() => {
+    const mentions = new Map(
+      channelMentions.map((mention) => [mention.id, mention])
+    );
+    const text = message.text || '';
+    for (const workspaceChannel of workspace.channels) {
+      const writtenMention = new RegExp(
+        `(^|\\s|\\[)#${escapeRegExp(workspaceChannel.name)}(?=\\s|$|[.,!?;:\\]])`,
+        'i'
+      ).test(text);
+      const legacyUrl = text.includes(
+        `/client/${workspace.id}/${workspaceChannel.id}`
+      );
+      if (writtenMention || legacyUrl) {
+        mentions.set(workspaceChannel.id, {
+          id: workspaceChannel.id,
+          name: workspaceChannel.name,
+        });
       }
-    ).channel_mentions || [];
+    }
+    return Array.from(mentions.values());
+  }, [channelMentions, message.text, workspace.channels, workspace.id]);
   const [pinning, setPinning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -457,8 +482,9 @@ const ChannelMessage = () => {
                     customMarkDownRenderers: {
                       br: () => <span className="paragraph_break block h-2" />,
                       a: ({ href, children }) => {
-                        const internalChannel = channelMentions.find((item) =>
-                          href?.includes(`/client/${workspace.id}/${item.id}`)
+                        const internalChannel = resolvedChannelMentions.find(
+                          (item) =>
+                            href?.includes(`/client/${workspace.id}/${item.id}`)
                         );
                         if (internalChannel) {
                           return (
@@ -502,7 +528,7 @@ const ChannelMessage = () => {
                     <>
                       {decorateChannelMentions(
                         rendered,
-                        channelMentions,
+                        resolvedChannelMentions,
                         selectChannel,
                         preloadChannel
                       )}
@@ -524,7 +550,7 @@ const ChannelMessage = () => {
                     (attachment as unknown as { og_scrape_url?: string })
                       .og_scrape_url;
                   if (
-                    channelMentions.some((mention) =>
+                    resolvedChannelMentions.some((mention) =>
                       previewUrl?.includes(
                         `/client/${workspace.id}/${mention.id}`
                       )
