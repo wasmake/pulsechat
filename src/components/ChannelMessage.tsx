@@ -40,6 +40,12 @@ const ChannelMessage = () => {
         role_mentions?: Array<{ id: string; name: string; color: string }>;
       }
     ).role_mentions || [];
+  const specialMentions =
+    (
+      message as unknown as {
+        special_mentions?: Array<{ id: string; name: string }>;
+      }
+    ).special_mentions || [];
   const [pinning, setPinning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -309,8 +315,16 @@ const ChannelMessage = () => {
                   </span>
                 </a>
               )}
-              {roleMentions.length > 0 && (
+              {(roleMentions.length > 0 || specialMentions.length > 0) && (
                 <div className="mb-1.5 flex flex-wrap gap-1.5">
+                  {specialMentions.map((mention) => (
+                    <span
+                      key={mention.id}
+                      className="rounded-md border border-[#52525b] bg-[#27272a] px-1.5 py-0.5 text-xs font-medium text-[#fafafa]"
+                    >
+                      @{mention.name}
+                    </span>
+                  ))}
                   {roleMentions.map((role) => (
                     <span
                       key={role.id}
@@ -327,6 +341,21 @@ const ChannelMessage = () => {
                   renderText(text, mentionedUsers, {
                     customMarkDownRenderers: {
                       br: () => <span className="paragraph_break block h-2" />,
+                      a: ({ href, children }) => {
+                        const internalChannel = href?.includes(
+                          `/client/${workspace.id}/`
+                        );
+                        return (
+                          <a
+                            href={href}
+                            className="str-chat__message-url-link"
+                            target={internalChannel ? undefined : '_blank'}
+                            rel="nofollow noreferrer noopener"
+                          >
+                            {children}
+                          </a>
+                        );
+                      },
                     },
                   })
                 }

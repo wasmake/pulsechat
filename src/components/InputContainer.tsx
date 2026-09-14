@@ -109,7 +109,43 @@ type MentionSuggestion =
       name: string;
       color: string;
       memberCount: number;
+    }
+  | {
+      type: 'special';
+      id: 'here' | 'everyone' | 'active';
+      name: string;
+      description: string;
     };
+
+const specialMentions: MentionSuggestion[] = [
+  {
+    type: 'special',
+    id: 'here',
+    name: 'here',
+    description: 'Members in this channel',
+  },
+  {
+    type: 'special',
+    id: 'everyone',
+    name: 'everyone',
+    description: 'Everyone in the workspace',
+  },
+  {
+    type: 'special',
+    id: 'active',
+    name: 'active',
+    description: 'Currently active members',
+  },
+];
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const containsMention = (text: string, prefix: '@' | '#', name: string) =>
+  new RegExp(
+    `(^|\\s)${prefix}${escapeRegExp(name)}(?=\\s|$|[.,!?;:])`,
+    'i'
+  ).test(text);
 
 const HOTKEYS: {
   [key: string]: string;
@@ -130,7 +166,7 @@ const initialValue: Descendant[] = [
 ];
 
 const InputContainer = () => {
-  const { workspace } = useContext(AppContext);
+  const { workspace, presenceById } = useContext(AppContext);
   const { channel } = useChannelStateContext();
   const { sendMessage, addNotification, setQuotedMessage } =
     useChannelActionContext();
@@ -147,10 +183,8 @@ const InputContainer = () => {
   const emojiSelection = useRef<Range | null>(null);
   const [filesInfo, setFilesInfo] = useState<FileInfo[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [channelQuery, setChannelQuery] = useState<string | null>(null);
   const [mentionedUsers, setMentionedUsers] = useState<UserResponse[]>([]);
-  const [mentionedRoles, setMentionedRoles] = useState<
-    Array<{ id: string; name: string; color: string }>
-  >([]);
   const lastComposerText = useRef('');
 
   const renderElement = useCallback(
@@ -170,6 +204,9 @@ const InputContainer = () => {
   const mentionSuggestions = useMemo(() => {
     if (mentionQuery === null) return [];
     const query = mentionQuery.toLowerCase();
+    const specials = specialMentions.filter((mention) =>
+      mention.name.includes(query)
+    );
     const roles: MentionSuggestion[] = workspace.roles
       .filter((role) => role.name.toLowerCase().includes(query))
       .map((role) => ({
@@ -188,8 +225,16 @@ const InputContainer = () => {
           member.name.toLowerCase().includes(query) ||
           member.email.toLowerCase().includes(query)
       );
-    return [...roles, ...users].slice(0, 8);
+    return [...specials, ...roles, ...users].slice(0, 8);
   }, [mentionQuery, workspace.memberships, workspace.roles]);
+
+  const channelSuggestions = useMemo(() => {
+    if (channelQuery === null) return [];
+    const query = channelQuery.toLowerCase();
+    return workspace.channels
+      .filter((item) => item.name.toLowerCase().includes(query))
+      .slice(0, 8);
+  }, [channelQuery, workspace.channels]);
 
   const serializeToMarkdown = (nodes: Descendant[]) => {
     return nodes.map((n) => serializeNode(n)).join('\n');
@@ -319,12 +364,29 @@ const InputContainer = () => {
   };
 
   const handleSubmit = async () => {
-    const text = serializeToMarkdown(editor.children as Descendant[]);
-    if (text || attachments.length > 0) {
+    const rawText = serializeToMarkdown(editor.children as Descendant[]);
+    if (rawText || attachments.length > 0) {
       try {
-        const activeRoles = mentionedRoles.filter((role) =>
-          text.includes(`@${role.name}`)
+        const activeRoles = workspace.roles.filter((role) =>
+          containsMention(rawText, '@', role.name)
         );
+        const activeSpecials = specialMentions.filter((mention) =>
+          containsMention(rawText, '@', mention.name)
+        );
+        const activeChannels = workspace.channels.filter((item) =>
+          containsMention(rawText, '#', item.name)
+        );
+        let text = rawText;
+        for (const mentionedChannel of activeChannels) {
+          const expression = new RegExp(
+            `(^|\\s)#${escapeRegExp(mentionedChannel.name)}(?=\\s|$|[.,!?;:])`,
+            'gi'
+          );
+          text = text.replace(
+            expression,
+            `$1[#${mentionedChannel.name}](${location.origin}/client/${workspace.id}/${mentionedChannel.id})`
+          );
+        }
         const roleMemberIds = new Set(
           workspace.memberships
             .filter((membership) =>
@@ -332,14 +394,37 @@ const InputContainer = () => {
             )
             .map((membership) => membership.userId)
         );
-        const activeMentions = mentionedUsers.filter(
-          (member) => member.name && text.includes(`@${member.name}`)
+        const channelMemberIds = new Set(
+          Object.keys(channel.state.members || {})
         );
-        const roleMembers = workspace.memberships
-          .filter((membership) => roleMemberIds.has(membership.userId))
+        const specialMemberIds = new Set(
+          workspace.memberships
+            .filter((membership) =>
+              activeSpecials.some((mention) => {
+                if (mention.id === 'everyone') return true;
+                if (mention.id === 'here')
+                  return channelMemberIds.has(membership.userId);
+                return presenceById[membership.userId]?.online === true;
+              })
+            )
+            .map((membership) => membership.userId)
+        );
+        const activeMentions = mentionedUsers.filter(
+          (member) => member.name && containsMention(rawText, '@', member.name)
+        );
+        const expandedMembers = workspace.memberships
+          .filter(
+            (membership) =>
+              roleMemberIds.has(membership.userId) ||
+              specialMemberIds.has(membership.userId)
+          )
           .map((membership) => membership.user);
-        const allMentionedUsers = [...activeMentions, ...roleMembers].filter(
+        const allMentionedUsers = [
+          ...activeMentions,
+          ...expandedMembers,
+        ].filter(
           (member, index, items) =>
+            member.id !== channel.getClient().userID &&
             items.findIndex((item) => item.id === member.id) === index
         );
         await sendMessage(
@@ -348,6 +433,14 @@ const InputContainer = () => {
             attachments,
             mentioned_users: allMentionedUsers,
             role_mentions: activeRoles,
+            special_mentions: activeSpecials.map(({ id, name }) => ({
+              id,
+              name,
+            })),
+            channel_mentions: activeChannels.map(({ id, name }) => ({
+              id,
+              name,
+            })),
             parent,
           } as never,
           quotedMessage ? { quoted_message_id: quotedMessage.id } : undefined
@@ -355,8 +448,8 @@ const InputContainer = () => {
         await channel.stopTyping(parent?.id);
         setFilesInfo([]);
         setMentionedUsers([]);
-        setMentionedRoles([]);
         setMentionQuery(null);
+        setChannelQuery(null);
         setQuotedMessage(undefined);
         lastComposerText.current = '';
         removeAttachments(attachments.map((a) => a.localMetadata.id));
@@ -386,6 +479,7 @@ const InputContainer = () => {
     }
     if (!editor.selection || !Range.isCollapsed(editor.selection)) {
       setMentionQuery(null);
+      setChannelQuery(null);
       return;
     }
     const beforeCursor = Editor.string(editor, {
@@ -394,6 +488,8 @@ const InputContainer = () => {
     });
     const match = beforeCursor.match(/(?:^|\s)@([^\s@]{0,40})$/);
     setMentionQuery(match ? match[1] : null);
+    const channelMatch = beforeCursor.match(/(?:^|\s)#([^\s#]{0,80})$/);
+    setChannelQuery(channelMatch ? channelMatch[1] : null);
   };
 
   useEffect(
@@ -420,11 +516,7 @@ const InputContainer = () => {
         ...current.filter((item) => item.id !== suggestion.id),
         suggestion,
       ]);
-    } else {
-      setMentionedRoles((current) => [
-        ...current.filter((item) => item.id !== suggestion.id),
-        suggestion,
-      ]);
+    } else if (suggestion.type === 'role') {
       const roleMembers = workspace.memberships
         .filter((membership) => membership.roleId === suggestion.id)
         .map((membership) => membership.user);
@@ -436,6 +528,25 @@ const InputContainer = () => {
       );
     }
     setMentionQuery(null);
+    ReactEditor.focus(editor);
+  };
+
+  const insertChannelMention = (mentionedChannel: {
+    id: string;
+    name: string;
+  }) => {
+    if (!editor.selection || channelQuery === null) return;
+    const start = Editor.before(editor, editor.selection.anchor, {
+      distance: channelQuery.length + 1,
+      unit: 'character',
+    });
+    if (start) {
+      Transforms.delete(editor, {
+        at: { anchor: start, focus: editor.selection.anchor },
+      });
+    }
+    Transforms.insertText(editor, `#${mentionedChannel.name} `);
+    setChannelQuery(null);
     ReactEditor.focus(editor);
   };
 
@@ -589,6 +700,18 @@ const InputContainer = () => {
                         return;
                       }
                     }
+                    if (channelQuery !== null && channelSuggestions.length) {
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        setChannelQuery(null);
+                        return;
+                      }
+                      if (event.key === 'Enter' || event.key === 'Tab') {
+                        event.preventDefault();
+                        insertChannelMention(channelSuggestions[0]);
+                        return;
+                      }
+                    }
                     if (event.key === 'Enter') {
                       if (event.shiftKey) {
                         return;
@@ -631,11 +754,15 @@ const InputContainer = () => {
                             fontSize={12}
                             data={suggestion}
                           />
-                        ) : (
+                        ) : suggestion.type === 'role' ? (
                           <span
                             className="flex h-7 w-7 items-center justify-center rounded-md bg-[#27272a] text-sm font-semibold"
                             style={{ color: suggestion.color }}
                           >
+                            @
+                          </span>
+                        ) : (
+                          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#27272a] text-sm font-semibold text-[#e4e4e7]">
                             @
                           </span>
                         )}
@@ -645,7 +772,35 @@ const InputContainer = () => {
                         <span className="ml-auto truncate text-xs text-[#71717a]">
                           {suggestion.type === 'user'
                             ? suggestion.email
-                            : `${suggestion.memberCount} members`}
+                            : suggestion.type === 'role'
+                              ? `${suggestion.memberCount} members`
+                              : suggestion.description}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {channelQuery !== null && channelSuggestions.length > 0 && (
+                  <div className="absolute bottom-[92px] left-3 z-50 w-[min(380px,calc(100%-24px))] rounded-lg border border-[#27272a] bg-[#0f0f12] p-1.5 shadow-2xl">
+                    <p className="px-2 py-1.5 text-xs font-medium text-[#71717a]">
+                      Link to a channel
+                    </p>
+                    {channelSuggestions.map((mentionedChannel) => (
+                      <button
+                        key={mentionedChannel.id}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => insertChannelMention(mentionedChannel)}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-[#27272a]"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#27272a] text-sm text-[#a1a1aa]">
+                          #
+                        </span>
+                        <span className="truncate text-sm font-medium text-[#e4e4e7]">
+                          {mentionedChannel.name}
+                        </span>
+                        <span className="ml-auto truncate text-xs text-[#71717a]">
+                          {mentionedChannel.description || 'Chat channel'}
                         </span>
                       </button>
                     ))}
