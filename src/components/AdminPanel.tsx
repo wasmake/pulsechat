@@ -93,7 +93,7 @@ const AdminPanel = ({
       <main className="mx-auto grid max-w-7xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="h-fit rounded-2xl border border-white/10 bg-[#151820] p-3">
           <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-[0.14em] text-[#777f91]">
-            Owned workspaces
+            All workspaces
           </p>
           <div className="space-y-1">
             {workspaces.map((workspace) => (

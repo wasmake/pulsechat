@@ -8,16 +8,17 @@ generator client {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  name          String
-  email         String        @unique
-  emailVerified Boolean       @default(false)
-  image         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  favoriteGifs  FavoriteGif[]
+  id               String        @id @default(cuid())
+  name             String
+  email            String        @unique
+  emailVerified    Boolean       @default(false)
+  image            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  sessions         Session[]
+  accounts         Account[]
+  favoriteGifs     FavoriteGif[]
+  authyPermissions String?       @db.Text
 }
 
 model FavoriteGif {

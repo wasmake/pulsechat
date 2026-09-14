@@ -7,6 +7,7 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import SignOutButton from '@/components/SignOutButton';
 import WorkspaceList from '@/components/WorkspaceList';
+import { isSuperAdmin } from '@/lib/admin';
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: headers() });
@@ -49,9 +50,7 @@ export default async function Home() {
       firstChannelId: workspace.channels[0].id,
     };
   });
-  const ownsWorkspace = memberships.some(
-    (membership) => membership.workspace.ownerId === user.id
-  );
+  const canAccessAdmin = isSuperAdmin(user);
 
   const invitations = await prisma.invitation.findMany({
     where: {
@@ -216,7 +215,7 @@ export default async function Home() {
             />
           )}
         </div>
-        {ownsWorkspace && (
+        {canAccessAdmin && (
           <Link
             href="/admin"
             className="mb-5 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-5 py-4 text-sm text-[#b8bdc8] transition hover:border-[#6d5dfc]/50 hover:bg-[#6d5dfc]/10 hover:text-white"

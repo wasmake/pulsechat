@@ -23,6 +23,15 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, { provider: 'mysql' }),
+  user: {
+    additionalFields: {
+      authyPermissions: {
+        type: 'string',
+        required: false,
+        input: false,
+      },
+    },
+  },
   trustedOrigins: [process.env.BETTER_AUTH_URL!],
   databaseHooks: {
     session: {
@@ -59,8 +68,20 @@ export const auth = betterAuth({
           authorizationUrl: `${authyIssuer}/api/auth/oauth2/authorize`,
           tokenUrl: `${authyIssuer}/api/auth/oauth2/token`,
           userInfoUrl: `${authyIssuer}/api/auth/oauth2/userinfo`,
-          scopes: ['openid', 'profile', 'email'],
+          scopes: ['openid', 'profile', 'email', 'permissions'],
           pkce: true,
+          overrideUserInfo: true,
+          mapProfileToUser: (profile) =>
+            ({
+              authyPermissions: JSON.stringify(
+                Array.isArray(profile.permissions)
+                  ? profile.permissions.filter(
+                      (permission: unknown): permission is string =>
+                        typeof permission === 'string'
+                    )
+                  : []
+              ),
+            }) as never,
         },
       ],
     }),

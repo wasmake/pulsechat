@@ -4,28 +4,25 @@ import { notFound, redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
 import AdminPanel, { AdminWorkspace } from '@/components/AdminPanel';
+import { isSuperAdmin } from '@/lib/admin';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
 const getSession = () => auth.api.getSession({ headers: headers() });
 
-const requireOwner = async (workspaceId: string) => {
+const requireSuperAdmin = async () => {
   const session = await getSession();
   if (!session) redirect('/sign-in');
-  const workspace = await prisma.workspace.findFirst({
-    where: { id: workspaceId, ownerId: session.user.id },
-    select: { id: true, ownerId: true },
-  });
-  if (!workspace) throw new Error('Workspace not found or access denied');
-  return { session, workspace };
+  if (!isSuperAdmin(session.user)) notFound();
+  return session;
 };
 
 export default async function AdminPage() {
   const session = await getSession();
   if (!session) redirect('/sign-in');
+  if (!isSuperAdmin(session.user)) notFound();
 
-  const ownedWorkspaces = await prisma.workspace.findMany({
-    where: { ownerId: session.user.id },
+  const allWorkspaces = await prisma.workspace.findMany({
     orderBy: { name: 'asc' },
     include: {
       channels: { orderBy: { name: 'asc' }, select: { id: true, name: true } },
@@ -37,11 +34,9 @@ export default async function AdminPage() {
     },
   });
 
-  if (!ownedWorkspaces.length) notFound();
-
   const userIds = Array.from(
     new Set(
-      ownedWorkspaces.flatMap((workspace) =>
+      allWorkspaces.flatMap((workspace) =>
         workspace.memberships.map((membership) => membership.userId)
       )
     )
@@ -52,7 +47,7 @@ export default async function AdminPage() {
   });
   const usersById = new Map(users.map((user) => [user.id, user]));
 
-  const workspaces: AdminWorkspace[] = ownedWorkspaces.map((workspace) => ({
+  const workspaces: AdminWorkspace[] = allWorkspaces.map((workspace) => ({
     id: workspace.id,
     name: workspace.name,
     image: workspace.image,
@@ -81,7 +76,10 @@ export default async function AdminPage() {
   async function updateWorkspace(formData: FormData) {
     'use server';
     const workspaceId = String(formData.get('workspaceId') || '');
-    await requireOwner(workspaceId);
+    await requireSuperAdmin();
+    if (!(await prisma.workspace.count({ where: { id: workspaceId } }))) {
+      throw new Error('Workspace not found');
+    }
     const name = String(formData.get('name') || '').trim();
     const accentColor = String(formData.get('accentColor') || '').toLowerCase();
     if (!name || name.length > 80) throw new Error('Invalid workspace name');
@@ -98,7 +96,10 @@ export default async function AdminPage() {
   async function inviteUser(formData: FormData) {
     'use server';
     const workspaceId = String(formData.get('workspaceId') || '');
-    const { session } = await requireOwner(workspaceId);
+    const session = await requireSuperAdmin();
+    if (!(await prisma.workspace.count({ where: { id: workspaceId } }))) {
+      throw new Error('Workspace not found');
+    }
     const email = String(formData.get('email') || '')
       .trim()
       .toLowerCase();
@@ -133,7 +134,12 @@ export default async function AdminPage() {
   async function updateMemberRole(formData: FormData) {
     'use server';
     const workspaceId = String(formData.get('workspaceId') || '');
-    const { workspace } = await requireOwner(workspaceId);
+    await requireSuperAdmin();
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { ownerId: true },
+    });
+    if (!workspace) throw new Error('Workspace not found');
     const userId = String(formData.get('userId') || '');
     const role = String(formData.get('role') || '');
     if (!['admin', 'member'].includes(role)) throw new Error('Invalid role');
@@ -149,7 +155,12 @@ export default async function AdminPage() {
   async function removeMember(formData: FormData) {
     'use server';
     const workspaceId = String(formData.get('workspaceId') || '');
-    const { workspace } = await requireOwner(workspaceId);
+    await requireSuperAdmin();
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { ownerId: true },
+    });
+    if (!workspace) throw new Error('Workspace not found');
     const userId = String(formData.get('userId') || '');
     if (userId === workspace.ownerId)
       throw new Error('Owner cannot be removed');
@@ -162,7 +173,7 @@ export default async function AdminPage() {
   async function revokeInvitation(formData: FormData) {
     'use server';
     const workspaceId = String(formData.get('workspaceId') || '');
-    await requireOwner(workspaceId);
+    await requireSuperAdmin();
     const invitationId = Number(formData.get('invitationId'));
     if (!Number.isInteger(invitationId)) throw new Error('Invalid invitation');
     await prisma.invitation.deleteMany({
