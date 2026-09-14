@@ -1,4 +1,15 @@
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Attachment,
   MessageText,
@@ -23,8 +34,63 @@ import { useSession } from '@/lib/auth-client';
 import GifFavoriteButton from './GifFavoriteButton';
 import type { GifResult } from './GifPicker';
 
+type ChannelMention = { id: string; name: string };
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const decorateChannelMentions = (
+  node: ReactNode,
+  mentions: ChannelMention[],
+  onSelect: (mention: ChannelMention) => void
+): ReactNode => {
+  if (typeof node === 'string') {
+    if (!mentions.length) return node;
+    const byName = new Map(
+      mentions.map((mention) => [mention.name.toLowerCase(), mention])
+    );
+    const names = mentions
+      .map((mention) => escapeRegExp(mention.name))
+      .sort((left, right) => right.length - left.length);
+    const parts = node.split(new RegExp(`(#(?:${names.join('|')}))`, 'gi'));
+    return parts.map((part, index) => {
+      const mention = part.startsWith('#')
+        ? byName.get(part.slice(1).toLowerCase())
+        : undefined;
+      return mention ? (
+        <button
+          key={`${mention.id}-${index}`}
+          type="button"
+          onClick={() => onSelect(mention)}
+          className="inline rounded bg-[#27272a] px-1 font-medium text-[#d4d4d8] hover:bg-[#3f3f46] hover:text-[#fafafa]"
+        >
+          #{mention.name}
+        </button>
+      ) : (
+        part
+      );
+    });
+  }
+  if (!isValidElement<{ children?: ReactNode }>(node)) return node;
+  if (
+    typeof node.type === 'string' &&
+    ['a', 'code', 'pre'].includes(node.type)
+  ) {
+    return node;
+  }
+  if (!node.props.children) return node;
+  return cloneElement(
+    node,
+    undefined,
+    Children.map(node.props.children, (child) =>
+      decorateChannelMentions(child, mentions, onSelect)
+    )
+  );
+};
+
 const ChannelMessage = () => {
   const { message, handleOpenThread, threadList } = useMessageContext();
+  const router = useRouter();
   const { channel } = useChannelStateContext('ChannelMessage');
   const { setQuotedMessage } = useChannelActionContext('ChannelMessage');
   const { data: session } = useSession();
@@ -46,6 +112,12 @@ const ChannelMessage = () => {
         special_mentions?: Array<{ id: string; name: string }>;
       }
     ).special_mentions || [];
+  const channelMentions =
+    (
+      message as unknown as {
+        channel_mentions?: ChannelMention[];
+      }
+    ).channel_mentions || [];
   const [pinning, setPinning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -337,19 +409,34 @@ const ChannelMessage = () => {
                 </div>
               )}
               <MessageText
-                renderText={(text, mentionedUsers) =>
-                  renderText(text, mentionedUsers, {
+                renderText={(text, mentionedUsers) => {
+                  const rendered = renderText(text, mentionedUsers, {
                     customMarkDownRenderers: {
                       br: () => <span className="paragraph_break block h-2" />,
                       a: ({ href, children }) => {
-                        const internalChannel = href?.includes(
-                          `/client/${workspace.id}/`
+                        const internalChannel = channelMentions.find((item) =>
+                          href?.includes(`/client/${workspace.id}/${item.id}`)
                         );
+                        if (internalChannel) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                router.push(
+                                  `/client/${workspace.id}/${internalChannel.id}`
+                                )
+                              }
+                              className="inline rounded bg-[#27272a] px-1 font-medium text-[#d4d4d8] hover:bg-[#3f3f46] hover:text-[#fafafa]"
+                            >
+                              {children}
+                            </button>
+                          );
+                        }
                         return (
                           <a
                             href={href}
                             className="str-chat__message-url-link"
-                            target={internalChannel ? undefined : '_blank'}
+                            target="_blank"
                             rel="nofollow noreferrer noopener"
                           >
                             {children}
@@ -357,8 +444,18 @@ const ChannelMessage = () => {
                         );
                       },
                     },
-                  })
-                }
+                  });
+                  return (
+                    <>
+                      {decorateChannelMentions(
+                        rendered,
+                        channelMentions,
+                        (mention) =>
+                          router.push(`/client/${workspace.id}/${mention.id}`)
+                      )}
+                    </>
+                  );
+                }}
               />
               <div
                 className={clsx(
@@ -369,6 +466,19 @@ const ChannelMessage = () => {
                 )}
               >
                 {message.attachments?.map((attachment) => {
+                  const previewUrl =
+                    attachment.title_link ||
+                    (attachment as unknown as { og_scrape_url?: string })
+                      .og_scrape_url;
+                  if (
+                    channelMentions.some((mention) =>
+                      previewUrl?.includes(
+                        `/client/${workspace.id}/${mention.id}`
+                      )
+                    )
+                  ) {
+                    return null;
+                  }
                   const gif = getGif(
                     attachment as unknown as Record<string, unknown>
                   );

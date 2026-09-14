@@ -376,17 +376,6 @@ const InputContainer = () => {
         const activeChannels = workspace.channels.filter((item) =>
           containsMention(rawText, '#', item.name)
         );
-        let text = rawText;
-        for (const mentionedChannel of activeChannels) {
-          const expression = new RegExp(
-            `(^|\\s)#${escapeRegExp(mentionedChannel.name)}(?=\\s|$|[.,!?;:])`,
-            'gi'
-          );
-          text = text.replace(
-            expression,
-            `$1[#${mentionedChannel.name}](${location.origin}/client/${workspace.id}/${mentionedChannel.id})`
-          );
-        }
         const roleMemberIds = new Set(
           workspace.memberships
             .filter((membership) =>
@@ -429,7 +418,7 @@ const InputContainer = () => {
         );
         await sendMessage(
           {
-            text,
+            text: rawText,
             attachments,
             mentioned_users: allMentionedUsers,
             role_mentions: activeRoles,
