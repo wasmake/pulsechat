@@ -24,7 +24,7 @@ const TextField = ({
 }: TextFieldProps) => {
   return (
     <div>
-      <label className="mb-2.5 block text-base font-medium text-white">
+      <label className="mb-2 block text-sm font-medium text-[#e4e4e7]">
         {label}
       </label>
       <div className="relative">
@@ -37,7 +37,7 @@ const TextField = ({
             placeholder={placeholder}
             autoComplete="off"
             className={clsx(
-              'w-full h-9 text-white tracking-loose text-[15px] leading-4 bg-transparent rounded-lg ring-1 ring-inset ring-[#797c8180] pt-[3px] pb-[5px] pl-3 pr-10 outline-none transition ease-out duration-75 focus:ring-[#0000] focus:shadow-[0_0_0_1px_rgb(18,100,163),_0_0_0_5px_color-mix(in_srgb,_#1d9bd1_30%,_transparent)] focus:ring placeholder:font-normal placeholder:text-icon-gray disabled:cursor-default disabled:bg-gray-2'
+              'h-10 w-full rounded-md border border-[#3f3f46] bg-[#09090b] px-3 text-sm text-[#fafafa] outline-none transition-colors placeholder:text-[#52525b] focus:border-[#71717a] disabled:cursor-default disabled:opacity-60'
             )}
             required={required}
             {...otherProps}
@@ -53,7 +53,7 @@ const TextField = ({
             placeholder={placeholder}
             autoComplete="off"
             className={clsx(
-              'w-full text-white tracking-loose text-[15px] leading-[1.46668] bg-transparent rounded-lg ring-1 ring-inset ring-[#797c8180] px-3 py-2 outline-none transition ease-out duration-75 focus:ring-[#0000] focus:shadow-[0_0_0_1px_rgb(18,100,163),_0_0_0_5px_color-mix(in_srgb,_#1d9bd1_30%,_transparent)] focus:ring placeholder:font-normal placeholder:text-icon-gray disabled:cursor-default disabled:bg-gray-2'
+              'w-full rounded-md border border-[#3f3f46] bg-[#09090b] px-3 py-2 text-sm text-[#fafafa] outline-none transition-colors placeholder:text-[#52525b] focus:border-[#71717a] disabled:cursor-default disabled:opacity-60'
             )}
             required={required}
             rows={multiline}

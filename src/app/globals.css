@@ -299,12 +299,12 @@
   }
 
   .channel .str-chat__list {
-    background: #1a1d21;
+    background: #0f0f12;
     padding: 15px 0;
   }
 
   .channel .str-chat__empty-channel {
-    background: #1a1d21;
+    background: #0f0f12;
   }
 
   .channel .str-chat__li,

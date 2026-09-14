@@ -8,6 +8,7 @@ import { auth } from '@/lib/auth';
 import SignOutButton from '@/components/SignOutButton';
 import WorkspaceList from '@/components/WorkspaceList';
 import { isSuperAdmin } from '@/lib/admin';
+import { syncDomainMemberships } from '@/lib/workspace-access';
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: headers() });
@@ -15,6 +16,8 @@ export default async function Home() {
 
   const { user } = session;
   const userEmail = user.email;
+
+  await syncDomainMemberships({ id: user.id, email: userEmail });
 
   const memberships = await prisma.membership.findMany({
     where: {
@@ -97,6 +100,11 @@ export default async function Home() {
       throw new Error('Invitation is invalid or belongs to another user');
     }
 
+    const defaultRole = await prisma.workspaceRole.findFirst({
+      where: { workspaceId: invitation.workspaceId, isDefault: true },
+      select: { id: true },
+    });
+
     await prisma.$transaction([
       prisma.membership.create({
         data: {
@@ -104,6 +112,7 @@ export default async function Home() {
           email: userEmail,
           workspaceId: invitation.workspaceId,
           role: 'user',
+          roleId: defaultRole?.id,
         },
       }),
       prisma.invitation.update({

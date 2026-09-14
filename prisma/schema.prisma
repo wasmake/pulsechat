@@ -81,14 +81,17 @@ model Verification {
 }
 
 model Workspace {
-  id          String       @id @default(cuid())
+  id          String                @id @default(cuid())
   name        String
   image       String?
-  accentColor String       @default("#4a154b")
+  accentColor String                @default("#4a154b")
   ownerId     String
   channels    Channel[]
   memberships Membership[]
   invitations Invitation[]
+  roles       WorkspaceRole[]
+  inviteLinks WorkspaceInviteLink[]
+  domainRules WorkspaceDomainRule[]
 }
 
 model Channel {
@@ -100,15 +103,70 @@ model Channel {
 }
 
 model Membership {
-  id          String    @id @default(cuid())
-  userId      String
-  email       String
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  role        String?   @default("member")
-  joinedAt    DateTime? @default(now())
+  id            String         @id @default(cuid())
+  userId        String
+  email         String
+  workspaceId   String
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id])
+  role          String?        @default("member")
+  roleId        String?
+  joinedAt      DateTime?      @default(now())
+  workspaceRole WorkspaceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
   @@unique([userId, workspaceId])
+  @@index([roleId])
+}
+
+model WorkspaceRole {
+  id          String                @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String                @default("#a1a1aa")
+  permissions String                @db.Text
+  position    Int                   @default(0)
+  isDefault   Boolean               @default(false)
+  isManaged   Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+  inviteLinks WorkspaceInviteLink[]
+  domainRules WorkspaceDomainRule[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, position])
+}
+
+model WorkspaceInviteLink {
+  id          String         @id @default(cuid())
+  token       String         @unique
+  workspaceId String
+  createdById String
+  roleId      String?
+  maxUses     Int?
+  useCount    Int            @default(0)
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime       @default(now())
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role        WorkspaceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([roleId])
+}
+
+model WorkspaceDomainRule {
+  id          String         @id @default(cuid())
+  workspaceId String
+  domain      String
+  roleId      String?
+  createdAt   DateTime       @default(now())
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role        WorkspaceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, domain])
+  @@index([domain])
+  @@index([roleId])
 }
 
 model Invitation {

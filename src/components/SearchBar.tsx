@@ -106,7 +106,7 @@ const SearchBar = ({ placeholder }: SearchBarProps) => {
           setOpen(true);
           input.current?.focus();
         }}
-        className="flex w-full cursor-text items-center h-7 px-2 rounded-md bg-[#f8f8f840] ring-white/0 focus-within:bg-[#1a1d21] focus-within:ring-1 focus-within:ring-white/50"
+        className="flex h-8 w-full cursor-text items-center rounded-md border border-[#3f3f46] bg-[#18181b] px-2 focus-within:border-[#71717a]"
       >
         <Search size={15} color="var(--primary)" />
         <input
@@ -118,7 +118,7 @@ const SearchBar = ({ placeholder }: SearchBarProps) => {
           onChange={(event) => setSearch(event.target.value)}
           placeholder={placeholder}
           autoComplete="off"
-          className="h-full min-w-0 flex-1 bg-transparent px-2 outline-none text-white text-[13px] placeholder:text-white"
+          className="h-full min-w-0 flex-1 bg-transparent px-2 text-[13px] text-[#fafafa] outline-none placeholder:text-[#71717a]"
           maxLength={100}
           aria-label={placeholder}
         />
@@ -131,7 +131,7 @@ const SearchBar = ({ placeholder }: SearchBarProps) => {
         </kbd>
       </form>
       {open && (
-        <div className="absolute left-0 right-0 top-9 z-[10000] max-h-[min(32rem,70vh)] overflow-y-auto rounded-lg border border-[#797c814d] bg-[#1a1d21] p-2 shadow-2xl">
+        <div className="absolute left-0 right-0 top-10 z-[10000] max-h-[min(32rem,70vh)] overflow-y-auto rounded-lg border border-[#27272a] bg-[#0f0f12] p-2 shadow-2xl">
           {!search.trim() && (
             <div className="px-3 py-4 text-sm text-[#b9babd]">
               Search messages across {workspace?.name}. Type at least two

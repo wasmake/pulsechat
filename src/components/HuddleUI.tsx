@@ -135,14 +135,7 @@ const HuddleUI = ({
                   />
                 )}
               </div>
-              <div className="absolute w-full h-full overflow-hidden rounded-lg">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://a.slack-edge.com/27f87ff/img/huddles/gradient_01.png"
-                  alt="huddle-background"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <div className="absolute h-full w-full overflow-hidden rounded-lg bg-[radial-gradient(circle_at_top,#27272a,#09090b_70%)]" />
             </div>
           )}
           <div

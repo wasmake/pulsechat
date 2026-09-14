@@ -3,6 +3,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { genericOAuth } from 'better-auth/plugins';
 
 import prisma from './prisma';
+import { syncDomainMemberships } from './workspace-access';
 
 const requiredEnvironment = [
   'BETTER_AUTH_SECRET',
@@ -49,6 +50,13 @@ export const auth = betterAuth({
               message: 'Authy must verify your email before you can sign in.',
             });
           }
+        },
+        after: async (session) => {
+          const user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            select: { id: true, email: true },
+          });
+          if (user) await syncDomainMemberships(user);
         },
       },
     },

@@ -16,7 +16,9 @@ import SidebarButton from './SidebarButton';
 import Threads from './icons/Threads';
 import Plus from './icons/Plus';
 import { useSession } from '@/lib/auth-client';
-import WorkspaceSettingsModal from './WorkspaceSettingsModal';
+import WorkspaceSettingsModal, {
+  WorkspaceSettingsTab,
+} from './WorkspaceSettingsModal';
 import Avatar from './Avatar';
 import { useRouter } from 'next/navigation';
 
@@ -51,6 +53,10 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [settingsTab, setSettingsTab] =
+    useState<WorkspaceSettingsTab>('overview');
+  const workspaceMenu = useRef<HTMLDivElement>(null);
 
   const isDragged = useRef(false);
 
@@ -118,46 +124,112 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
   };
 
   const isWorkspaceOwner = workspace?.ownerId === user?.id;
+  const currentMembership = workspace?.memberships.find(
+    (membership) => membership.userId === user?.id
+  );
+  let rolePermissions: string[] = [];
+  try {
+    rolePermissions = JSON.parse(
+      currentMembership?.workspaceRole?.permissions || '[]'
+    );
+  } catch {
+    rolePermissions = [];
+  }
+  const legacyAdmin = currentMembership?.role?.toLowerCase() === 'admin';
+  const canManage =
+    isWorkspaceOwner || legacyAdmin || rolePermissions.length > 0;
+  const canManageInvites =
+    isWorkspaceOwner ||
+    legacyAdmin ||
+    rolePermissions.includes('manage_invites');
+
+  useEffect(() => {
+    const closeMenu = (event: PointerEvent) => {
+      if (!workspaceMenu.current?.contains(event.target as Node)) {
+        setWorkspaceMenuOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', closeMenu);
+    return () => window.removeEventListener('pointerdown', closeMenu);
+  }, []);
+
+  const openSettings = (nextTab: WorkspaceSettingsTab) => {
+    setSettingsTab(nextTab);
+    setSettingsOpen(true);
+    setWorkspaceMenuOpen(false);
+  };
 
   return (
     <div
       id="sidebar"
       style={{ width: `${width}px` }}
       className={clsx(
-        'hidden relative px-2 sm:flex flex-col flex-shrink-0 gap-3 min-w-0 min-h-0 max-h-[calc(100svh-44px)] bg-[#10121499] border-r-[1px] border-solid',
-        loading ? 'border-r-transparent' : 'border-r-[#797c814d]'
+        'relative hidden min-h-0 min-w-0 flex-shrink-0 flex-col gap-3 border-r bg-[#0f0f12] px-2 sm:flex',
+        loading ? 'border-r-transparent' : 'border-r-[#27272a]'
       )}
     >
       {!loading && (
         <>
           <div className="pl-1 w-full h-[49px] flex items-center justify-between">
-            <div className="max-w-[calc(100%-80px)]">
+            <div
+              ref={workspaceMenu}
+              className="relative max-w-[calc(100%-80px)]"
+            >
               <button
-                className="w-fit max-w-full rounded-md py-[3px] px-2 flex items-center text-white hover:bg-hover-gray disabled:cursor-default"
-                onClick={() => setSettingsOpen(true)}
-                disabled={!isWorkspaceOwner}
-                title={isWorkspaceOwner ? 'Customize workspace' : undefined}
+                className="flex w-fit max-w-full items-center rounded-md px-2 py-[3px] text-[#fafafa] hover:bg-[#27272a] disabled:cursor-default"
+                onClick={() => setWorkspaceMenuOpen((current) => !current)}
+                disabled={!canManage}
+                aria-expanded={workspaceMenuOpen}
+                title={canManage ? 'Workspace menu' : undefined}
               >
-                <span className="truncate text-[18px] font-[900] leading-[1.33334]">
+                <span className="truncate font-outfit text-base font-semibold leading-[1.33334]">
                   {workspace.name}
                 </span>
                 <div className="flex-shrink-0">
                   <CaretDown size={18} color="var(--primary)" />
                 </div>
               </button>
+              {workspaceMenuOpen && (
+                <div className="absolute left-0 top-9 z-[10000] w-60 overflow-hidden rounded-lg border border-[#27272a] bg-[#0f0f12] p-1.5 text-sm text-[#d4d4d8] shadow-2xl">
+                  {canManageInvites && (
+                    <button
+                      type="button"
+                      onClick={() => openSettings('invites')}
+                      className="w-full rounded-md px-3 py-2 text-left hover:bg-[#27272a] hover:text-[#fafafa]"
+                    >
+                      Invite people
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => openSettings('overview')}
+                    className="w-full rounded-md px-3 py-2 text-left hover:bg-[#27272a] hover:text-[#fafafa]"
+                  >
+                    Workspace settings
+                  </button>
+                  <div className="my-1 h-px bg-[#27272a]" />
+                  <button
+                    type="button"
+                    onClick={() => router.push('/')}
+                    className="w-full rounded-md px-3 py-2 text-left text-[#a1a1aa] hover:bg-[#27272a] hover:text-[#fafafa]"
+                  >
+                    Switch workspace
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex ">
               <IconButton
                 icon={
                   <Refine className="fill-icon-gray group-hover:fill-white" />
                 }
-                className="w-9 h-9 hover:bg-hover-gray"
+                className="h-9 w-9 hover:bg-[#27272a]"
               />
               <IconButton
                 icon={
                   <Compose className="fill-icon-gray group-hover:fill-white" />
                 }
-                className="w-9 h-9 hover:bg-hover-gray"
+                className="h-9 w-9 hover:bg-[#27272a]"
               />
             </div>
           </div>
@@ -167,10 +239,10 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
           </div>
           <div className="w-full flex flex-col min-h-0">
             <div className="h-7 -ml-1.5 flex items-center px-4 text-[15px] leading-7">
-              <button className="hover:bg-hover-gray rounded-md">
+              <button className="rounded-md hover:bg-[#27272a]">
                 <ArrowDropdown color="var(--icon-gray)" />
               </button>
-              <button className="flex px-[5px] max-w-full rounded-md text-sidebar-gray font-medium hover:bg-hover-gray">
+              <button className="flex max-w-full rounded-md px-[5px] font-medium text-[#a1a1aa] hover:bg-[#27272a]">
                 {sidebarMode === 'channels'
                   ? 'Channels'
                   : sidebarMode === 'dms'
@@ -204,7 +276,7 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                           `/client/${workspace.id}/dm-${membership.userId}`
                         )
                       }
-                      className="sidebar-btn flex items-center gap-2 h-8 px-3 rounded-md text-[15px] text-sidebar-gray hover:bg-hover-gray hover:text-white"
+                      className="sidebar-btn flex h-8 items-center gap-2 rounded-md px-3 text-[15px] text-[#a1a1aa] hover:bg-[#27272a] hover:text-[#fafafa]"
                     >
                       <span className="relative">
                         <Avatar
@@ -216,7 +288,7 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                           }
                         />
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#101214] ${
+                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0f0f12] ${
                             presenceById[membership.userId]?.online
                               ? 'bg-[#2bac76]'
                               : 'bg-[#777a80]'
@@ -258,7 +330,7 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                         `/client/${workspace.id}/${routeId}#message-${activity.id}`
                       );
                     }}
-                    className="flex gap-2 rounded-md px-2 py-2 text-left hover:bg-hover-gray"
+                    className="flex gap-2 rounded-md px-2 py-2 text-left hover:bg-[#27272a]"
                   >
                     <Avatar
                       width={30}
@@ -286,13 +358,16 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                 )}
               </div>
             )}
-            {sidebarMode === 'channels' && isWorkspaceOwner && (
-              <SidebarButton
-                icon={Plus}
-                title="Add a channel"
-                onClick={openCreateChannelModal}
-              />
-            )}
+            {sidebarMode === 'channels' &&
+              (isWorkspaceOwner ||
+                legacyAdmin ||
+                rolePermissions.includes('manage_channels')) && (
+                <SidebarButton
+                  icon={Plus}
+                  title="Add a channel"
+                  onClick={openCreateChannelModal}
+                />
+              )}
           </div>
           {/* Handle */}
           <div
@@ -302,10 +377,11 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
             }}
           />
           <AddChannelModal open={isModalOpen} onClose={onModalClose} />
-          {isWorkspaceOwner && (
+          {canManage && (
             <WorkspaceSettingsModal
               open={settingsOpen}
               workspace={workspace}
+              initialTab={settingsTab}
               onClose={() => setSettingsOpen(false)}
               onSave={setWorkspace}
             />

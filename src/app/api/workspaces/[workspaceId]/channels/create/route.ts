@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { generateChannelId } from '@/lib/utils';
 import prisma from '@/lib/prisma';
+import { getWorkspaceAccess } from '@/lib/workspace-access';
 
 export async function POST(
   request: Request,
@@ -16,8 +17,6 @@ export async function POST(
       { status: 401 }
     );
   }
-
-  const userId = session.user.id;
 
   const workspaceId = (await params).workspaceId;
 
@@ -39,25 +38,8 @@ export async function POST(
       );
     }
 
-    // Check if the user is a member of the workspace
-    const membership = await prisma.membership.findUnique({
-      where: {
-        userId_workspaceId: {
-          userId,
-          workspaceId,
-        },
-      },
-    });
-
-    if (!membership) {
-      return NextResponse.json(
-        { error: 'Access denied: Not a member of the workspace' },
-        { status: 403 }
-      );
-    }
-
-    // Check if the user has permission to create channels
-    if (membership.role !== 'admin') {
+    const access = await getWorkspaceAccess(workspaceId, session.user);
+    if (!access?.can('manage_channels')) {
       return NextResponse.json(
         { error: 'Access denied: Insufficient permissions' },
         { status: 403 }

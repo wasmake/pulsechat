@@ -22,14 +22,14 @@ const RailButton = ({
     <button
       onClick={onClick}
       className={clsx(
-        'w-full group py-2 cursor-pointer flex flex-col gap-1 text-center text-[11px] leading-3 font-bold items-center justify-center [&_svg]:transition-all [&_svg]:hover:scale-[1.2]',
+        'group flex w-full cursor-pointer flex-col items-center justify-center gap-1 py-2 text-center text-[11px] font-medium leading-3 text-[#a1a1aa] hover:text-[#fafafa] [&_svg]:transition-all',
         className
       )}
     >
       <div
         className={clsx(
-          'relative w-9 h-9 flex items-center justify-center transition-[background] duration-[125ms] ease-[cubic-bezier(.17,.67,.55,1.09)] group-hover:bg-[#f8f8f840] rounded-lg',
-          active && 'bg-[#f8f8f840]',
+          'relative flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition-colors group-hover:bg-[#27272a]',
+          active && 'border-[#3f3f46] bg-[#27272a]',
           !active && 'bg-transparent'
         )}
       >

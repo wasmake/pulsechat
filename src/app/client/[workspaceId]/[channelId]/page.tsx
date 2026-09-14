@@ -203,10 +203,10 @@ const Channel = ({ params }: ChannelProps) => {
   return (
     <div
       ref={layoutRef}
-      className="channel bg-[#1a1d21] font-lato w-full h-full z-100 flex flex-col overflow-hidden text-channel-gray"
+      className="channel z-100 flex h-full w-full flex-col overflow-hidden bg-[#0f0f12] font-lato text-[#d4d4d8]"
     >
       {/* Toolbar */}
-      <div className="pl-4 pr-3 h-[49px] flex items-center flex-shrink-0 justify-between">
+      <div className="flex h-[49px] flex-shrink-0 items-center justify-between border-b border-[#27272a] px-3 pl-4">
         <div className="flex flex-[1_1_0] items-center min-w-0">
           <button className="min-w-[96px] px-2 py-[3px] -ml-1 mr-2 flex flex-[0_auto] items-center text-[17.8px] rounded-md text-channel-gray hover:bg-[#d1d2d30b] leading-[1.33334]">
             <span className="mr-1 align-text-bottom">
@@ -220,7 +220,7 @@ const Channel = ({ params }: ChannelProps) => {
           </button>
           <div
             className={clsx(
-              'w-[96px] flex-[1_1_0] min-w-[96px] mr-2 pt-1 text-[12.8px] text-[#e8e8e8b3]',
+              'mr-2 w-[96px] min-w-[96px] flex-[1_1_0] pt-1 text-[12.8px] text-[#71717a]',
               pageWidth > 0 && pageWidth < 500 ? 'hidden' : 'flex'
             )}
           >
@@ -233,7 +233,7 @@ const Channel = ({ params }: ChannelProps) => {
           {!isDm && (
             <button
               className={clsx(
-                'flex items-center pl-2 py-[3px] rounded-lg h-7 border border-[#797c814d] text-[#e8e8e8b3] hover:bg-[#25272b]',
+                'flex h-7 items-center rounded-md border border-[#3f3f46] py-[3px] pl-2 text-[#a1a1aa] hover:bg-[#27272a]',
                 pageWidth > 0 && pageWidth < 605 ? 'hidden' : 'flex'
               )}
             >
@@ -249,11 +249,11 @@ const Channel = ({ params }: ChannelProps) => {
             </StreamCall>
           )}
           {!isDm && !channelCall && (
-            <div className="w-[59px] flex items-center ml-2 rounded-lg h-7 border border-[#797c814d] text-[#e8e8e8b3]">
+            <div className="ml-2 flex h-7 w-[59px] items-center rounded-md border border-[#3f3f46] text-[#a1a1aa]">
               <button className="px-2 h-[26px] hover:bg-[#25272b] rounded-l-lg">
                 <Headphones color="var(--icon-gray)" />
               </button>
-              <div className="h-5 w-[1px] bg-[#797c814d]" />
+              <div className="h-5 w-px bg-[#3f3f46]" />
               <button className="w-5 h-[26px] hover:bg-[#25272b] rounded-r-lg">
                 <CaretDown color="var(--icon-gray)" />
               </button>

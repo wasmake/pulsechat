@@ -36,13 +36,15 @@ const WorkspaceLayout = ({ children }: WorkspaceLayoutProps) => {
     <div
       ref={layoutRef}
       className={clsx(
-        'relative flex mr-1 mb-1 rounded-md overflow-hidden border border-solid',
-        loading ? 'border-transparent' : 'border-[#797c814d]'
+        'relative flex min-w-0 overflow-hidden',
+        loading ? 'border-transparent' : 'border-[#27272a]'
       )}
     >
       {/* Sidebar */}
       <Sidebar layoutWidth={layoutWidth} />
-      {layoutWidth > 0 && <div className="bg-[#1a1d21] grow">{children}</div>}
+      {layoutWidth > 0 && (
+        <div className="min-w-0 grow bg-[#0f0f12]">{children}</div>
+      )}
     </div>
   );
 };

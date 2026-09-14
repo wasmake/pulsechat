@@ -6,6 +6,7 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   loading?: boolean;
+  size?: 'default' | 'wide';
 }
 
 const Modal = ({
@@ -14,6 +15,7 @@ const Modal = ({
   open,
   onClose,
   title,
+  size = 'default',
 }: ModalProps) => {
   const modal = useRef<HTMLDivElement>(null);
 
@@ -29,17 +31,19 @@ const Modal = ({
         role="dialog"
         aria-modal="true"
         aria-label={title || 'Dialog'}
-        className="flex flex-col w-full max-w-[580px] rounded-lg bg-[#1a1d21] border border-[#797c8126] shadow-[0_0_0_1px_rgba(29,28,29,.13),0_18px_48px_0_#00000059] px-7 py-5"
+        className={`flex max-h-[90vh] w-full flex-col overflow-y-auto rounded-xl border border-[#27272a] bg-[#0f0f12] px-5 py-5 text-[#fafafa] shadow-2xl sm:px-6 ${size === 'wide' ? 'max-w-[920px]' : 'max-w-[580px]'}`}
       >
         {title && (
           <div className="pb-[18px] flex items-center justify-between">
-            <h3 className="text-xl font-semibold sm:text-2xl">{title}</h3>
+            <h3 className="font-outfit text-xl font-semibold tracking-tight">
+              {title}
+            </h3>
             <button
               type="button"
               aria-label="Close dialog"
               onClick={onClose}
               disabled={loading}
-              className="group w-9 h-9 -mr-2 rounded-lg flex ml-2 items-center justify-center hover:bg-[#d1d2d30b]"
+              className="group ml-2 flex h-9 w-9 -mr-2 items-center justify-center rounded-md hover:bg-[#27272a]"
             >
               <svg
                 data-0ko="true"
@@ -50,7 +54,7 @@ const Modal = ({
               >
                 <path
                   fill="currentColor"
-                  className="fill-[#e8e8e8b3] group-hover:fill-channel-gray"
+                  className="fill-[#a1a1aa] group-hover:fill-[#fafafa]"
                   fillRule="evenodd"
                   d="M16.53 3.47a.75.75 0 0 1 0 1.06L11.06 10l5.47 5.47a.75.75 0 0 1-1.06 1.06L10 11.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L8.94 10 3.47 4.53a.75.75 0 0 1 1.06-1.06L10 8.94l5.47-5.47a.75.75 0 0 1 1.06 0"
                   clipRule="evenodd"

@@ -85,9 +85,17 @@ export async function updateMemberRole(formData: FormData) {
   const role = String(formData.get('role') || '');
   if (!['admin', 'member'].includes(role)) throw new Error('Invalid role');
   if (userId === workspace.ownerId) throw new Error('Owner role cannot change');
+  const workspaceRole = await prisma.workspaceRole.findFirst({
+    where: {
+      workspaceId,
+      isManaged: true,
+      name: role === 'admin' ? 'Admin' : 'Member',
+    },
+    select: { id: true },
+  });
   await prisma.membership.update({
     where: { userId_workspaceId: { userId, workspaceId } },
-    data: { role },
+    data: { role, roleId: workspaceRole?.id || null },
   });
   revalidatePath('/admin');
 }

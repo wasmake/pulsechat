@@ -1,16 +1,11 @@
 'use client';
-import {
-  createContext,
-  CSSProperties,
-  ReactNode,
-  useEffect,
-  useState,
-} from 'react';
+import { createContext, ReactNode, useEffect, useState } from 'react';
 import {
   Channel,
   Invitation,
   Membership,
   Workspace as PrismaWorkspace,
+  WorkspaceRole,
 } from '@prisma/client';
 import { StreamChat } from 'stream-chat';
 import type { MessageResponse } from 'stream-chat';
@@ -50,10 +45,12 @@ export type Workspace = PrismaWorkspace & {
   channels: Channel[];
   memberships: Array<
     Membership & {
+      workspaceRole: WorkspaceRole | null;
       user: { id: string; name: string; email: string; image: string | null };
     }
   >;
   invitations: Invitation[];
+  roles: WorkspaceRole[];
 };
 
 export type ProfileUser = {
@@ -358,9 +355,7 @@ const Layout = ({ children }: LayoutProps) => {
 
   if (!chatClient || !videoClient || !user)
     return (
-      <div className="client font-lato w-screen h-screen flex flex-col">
-        <div className="absolute w-full h-full bg-theme-gradient" />
-      </div>
+      <div className="client flex h-screen w-screen flex-col bg-[#09090b] font-lato"></div>
     );
 
   return (
@@ -391,23 +386,32 @@ const Layout = ({ children }: LayoutProps) => {
     >
       <Chat client={chatClient}>
         <StreamVideo client={videoClient}>
-          <div
-            className="client font-lato w-screen h-screen flex flex-col"
-            style={
-              {
-                '--workspace-accent': workspace?.accentColor || '#4a154b',
-              } as CSSProperties
-            }
-          >
-            <div className="absolute w-full h-full bg-theme-gradient" />
+          <div className="client flex h-screen w-screen flex-col bg-[#09090b] font-lato text-[#fafafa]">
             {/* Toolbar */}
-            <div className="relative w-full h-10 flex items-center justify-between pr-1">
-              <div className="w-[4.375rem] h-10 mr-auto flex-none" />
+            <div className="relative flex h-14 w-full items-center justify-between border-b border-[#27272a] bg-[#09090b] pr-2">
+              <div className="mr-auto flex h-14 w-16 flex-none items-center justify-center">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#fafafa] text-[#09090b]">
+                  <svg
+                    viewBox="0 0 32 32"
+                    className="h-5 w-5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M4 17h5l2.4-7 4.2 14 3.2-10 2 3H28"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </div>
               {!loading && (
                 <div className="flex flex-auto items-center">
                   <div className="relative hidden sm:flex flex-none basis-[24%]">
                     <div className="flex justify-start basis-full" />
-                    <div className="flex justify-end basis-full mr-3">
+                    <div className="mr-3 flex basis-full justify-end">
                       <div className="flex gap-1 items-center">
                         <IconButton
                           icon={<ArrowBack color="var(--primary)" />}
@@ -431,9 +435,9 @@ const Layout = ({ children }: LayoutProps) => {
               )}
             </div>
             {/* Main */}
-            <div className="w-screen h-[calc(100svh-40px)] grid grid-cols-[70px_auto]">
+            <div className="grid h-[calc(100svh-56px)] w-screen grid-cols-[64px_auto]">
               {/* Rail */}
-              <div className="relative w-[4.375rem] flex flex-col items-center gap-3 pt-2 z-[1000] bg-transparent">
+              <div className="relative z-[1000] flex w-16 flex-col items-center gap-3 border-r border-[#27272a] bg-[#09090b] pt-3">
                 {!loading && (
                   <>
                     <WorkspaceSwitcher />
@@ -467,7 +471,7 @@ const Layout = ({ children }: LayoutProps) => {
                       />
                     </div>
                     <div className="flex flex-col items-center gap-4 mt-auto pb-6 w-full">
-                      <div className="cursor-pointer flex items-center justify-center w-9 h-9 rounded-full bg-[#565759]">
+                      <div className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[#3f3f46] bg-[#18181b] hover:bg-[#27272a]">
                         <Plus color="var(--primary)" />
                       </div>
                       <div className="relative h-9 w-9">
@@ -490,7 +494,7 @@ const Layout = ({ children }: LayoutProps) => {
                                 image: user.image || undefined,
                               }}
                             />
-                            <span className="absolute w-3.5 h-3.5 rounded-full flex items-center justify-center -bottom-[3px] -right-[3px] bg-[#111215]">
+                            <span className="absolute -bottom-[3px] -right-[3px] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#09090b]">
                               <div
                                 className={`w-[8.5px] h-[8.5px] rounded-full ${
                                   presenceById[user.id]?.online === true

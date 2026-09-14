@@ -16,9 +16,9 @@ test('offers a fresh sign-in when an OAuth request has expired', async ({
   page,
 }) => {
   await page.goto('/sign-in?error=please_restart_the_process');
-  await expect(page.getByRole('alert')).toContainText(
-    'sign-in request expired or was already used'
-  );
+  await expect(
+    page.getByText('That sign-in request expired or was already used.')
+  ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Continue with Authy' })
   ).toBeEnabled();
@@ -35,4 +35,11 @@ test('redirects protected pages to sign-in with their return path', async ({
 test('redirects sign-up to the SSO sign-in page', async ({ page }) => {
   await page.goto('/sign-up');
   await expect(page).toHaveURL(/\/sign-in$/);
+});
+
+test('preserves an invite link through SSO', async ({ page }) => {
+  await page.goto('/invite/example-token');
+  await expect(page).toHaveURL(
+    /\/sign-in\?callbackURL=%2Finvite%2Fexample-token$/
+  );
 });

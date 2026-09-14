@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { getWorkspaceAccess } from '@/lib/workspace-access';
 
 export async function GET(
   request: Request,
@@ -47,7 +48,8 @@ export async function GET(
       where: { id: workspaceId },
       include: {
         channels: true,
-        memberships: true,
+        memberships: { include: { workspaceRole: true } },
+        roles: { orderBy: { position: 'desc' } },
         invitations: {
           where: { acceptedAt: null },
         },
@@ -93,7 +95,8 @@ export async function GET(
       },
       include: {
         channels: true,
-        memberships: true,
+        memberships: { include: { workspaceRole: true } },
+        roles: { orderBy: { position: 'desc' } },
         invitations: {
           where: { acceptedAt: null },
         },
@@ -154,14 +157,11 @@ export async function PATCH(
   }
 
   const workspaceId = (await params).workspaceId;
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { ownerId: true },
-  });
-  if (!workspace) {
+  const access = await getWorkspaceAccess(workspaceId, session.user);
+  if (!access) {
     return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
   }
-  if (workspace.ownerId !== session.user.id) {
+  if (!access.can('manage_workspace')) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 

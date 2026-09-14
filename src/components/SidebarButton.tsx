@@ -26,8 +26,8 @@ const SidebarButton = ({
     <button
       onClick={onClick}
       className={clsx(
-        'sidebar-btn w-full font-lato pl-4 pr-2.5 h-7 leading-7 rounded-md cursor-pointer inline-flex items-center text-sidebar-gray disabled:bg-transparent [&_path]:disabled:fill-[#8a8b8d]',
-        active ? 'bg-[#414449]' : 'hover:bg-hover-gray',
+        'sidebar-btn inline-flex h-8 w-full cursor-pointer items-center rounded-md pl-4 pr-2.5 font-lato leading-8 text-[#a1a1aa] disabled:bg-transparent [&_path]:disabled:fill-[#71717a]',
+        active ? 'bg-[#27272a]' : 'hover:bg-[#18181b] hover:text-[#fafafa]',
         className
       )}
     >

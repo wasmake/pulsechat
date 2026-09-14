@@ -66,12 +66,39 @@ export async function POST(request: Request) {
           workspaceId: workspace.id,
         },
       });
+      const adminRole = await tx.workspaceRole.create({
+        data: {
+          workspaceId: workspace.id,
+          name: 'Admin',
+          color: '#fafafa',
+          permissions: JSON.stringify([
+            'manage_workspace',
+            'manage_channels',
+            'manage_invites',
+            'manage_roles',
+            'manage_members',
+          ]),
+          position: 100,
+          isManaged: true,
+        },
+      });
+      await tx.workspaceRole.create({
+        data: {
+          workspaceId: workspace.id,
+          name: 'Member',
+          color: '#a1a1aa',
+          permissions: '[]',
+          isDefault: true,
+          isManaged: true,
+        },
+      });
       await tx.membership.create({
         data: {
           userId,
           email: userEmail,
           workspaceId: workspace.id,
           role: 'admin',
+          roleId: adminRole.id,
         },
       });
 

@@ -25,10 +25,10 @@ const Button = ({
     <button
       type={type}
       className={
-        'min-w-[82.55px] flex items-center justify-center p-4 font-bold rounded text-[13.8px] tracking-[.057em] uppercase transition-all duration-300 ease-out disabled:bg-[#dddddd] disabled:border-[#dddddd] disabled:hover:bg-[#dddddd] disabled:hover:border-[#dddddd] disabled:text-[#1d1c1dbf] ' +
+        'inline-flex min-w-[82px] items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ' +
         (variant === 'primary'
-          ? 'text-[#fff] bg-[#611f69] border-[#611f69] hover:bg-[#4a154b] border hover:border-[#4a154b] '
-          : 'text-[#611f69] bg-[#fff] shadow-[inset_0_0_0_1px_#611f69] hover:shadow-[inset_0_0_0_2px_#611f69] ') +
+          ? 'bg-[#fafafa] text-[#18181b] hover:bg-[#e4e4e7] '
+          : 'border border-[#3f3f46] bg-[#18181b] text-[#e4e4e7] hover:bg-[#27272a] ') +
         className
       }
       onClick={disabled ? undefined : onClick}
