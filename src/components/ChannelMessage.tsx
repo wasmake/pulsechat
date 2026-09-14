@@ -42,7 +42,8 @@ const escapeRegExp = (value: string) =>
 const decorateChannelMentions = (
   node: ReactNode,
   mentions: ChannelMention[],
-  onSelect: (mention: ChannelMention) => void
+  onSelect: (mention: ChannelMention) => void,
+  onPreload: (mention: ChannelMention) => void
 ): ReactNode => {
   if (typeof node === 'string') {
     if (!mentions.length) return node;
@@ -58,14 +59,23 @@ const decorateChannelMentions = (
         ? byName.get(part.slice(1).toLowerCase())
         : undefined;
       return mention ? (
-        <button
+        <span
           key={`${mention.id}-${index}`}
-          type="button"
+          role="link"
+          tabIndex={0}
           onClick={() => onSelect(mention)}
-          className="inline rounded bg-[#27272a] px-1 font-medium text-[#d4d4d8] hover:bg-[#3f3f46] hover:text-[#fafafa]"
+          onMouseEnter={() => onPreload(mention)}
+          onFocus={() => onPreload(mention)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onSelect(mention);
+            }
+          }}
+          className="cursor-pointer font-medium text-[#60a5fa] hover:underline"
         >
           #{mention.name}
-        </button>
+        </span>
       ) : (
         part
       );
@@ -83,7 +93,7 @@ const decorateChannelMentions = (
     node,
     undefined,
     Children.map(node.props.children, (child) =>
-      decorateChannelMentions(child, mentions, onSelect)
+      decorateChannelMentions(child, mentions, onSelect, onPreload)
     )
   );
 };
@@ -94,8 +104,12 @@ const ChannelMessage = () => {
   const { channel } = useChannelStateContext('ChannelMessage');
   const { setQuotedMessage } = useChannelActionContext('ChannelMessage');
   const { data: session } = useSession();
-  const { workspace, setSelectedProfile, presenceById } =
-    useContext(AppContext);
+  const {
+    workspace,
+    setChannel: setSelectedChannel,
+    setSelectedProfile,
+    presenceById,
+  } = useContext(AppContext);
   const user = session?.user;
   const isMentioned = message.mentioned_users?.some(
     (mentionedUser) => mentionedUser.id === user?.id
@@ -319,6 +333,19 @@ const ChannelMessage = () => {
     };
   };
 
+  const preloadChannel = (mention: ChannelMention) => {
+    router.prefetch(`/client/${workspace.id}/${mention.id}`);
+  };
+
+  const selectChannel = (mention: ChannelMention) => {
+    const selectedChannel = workspace.channels.find(
+      (item) => item.id === mention.id
+    );
+    if (!selectedChannel) return;
+    setSelectedChannel(selectedChannel);
+    router.push(`/client/${workspace.id}/${selectedChannel.id}`);
+  };
+
   return (
     <div
       ref={messageRef}
@@ -419,17 +446,27 @@ const ChannelMessage = () => {
                         );
                         if (internalChannel) {
                           return (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                router.push(
-                                  `/client/${workspace.id}/${internalChannel.id}`
-                                )
+                            <span
+                              role="link"
+                              tabIndex={0}
+                              onClick={() => selectChannel(internalChannel)}
+                              onMouseEnter={() =>
+                                preloadChannel(internalChannel)
                               }
-                              className="inline rounded bg-[#27272a] px-1 font-medium text-[#d4d4d8] hover:bg-[#3f3f46] hover:text-[#fafafa]"
+                              onFocus={() => preloadChannel(internalChannel)}
+                              onKeyDown={(event) => {
+                                if (
+                                  event.key === 'Enter' ||
+                                  event.key === ' '
+                                ) {
+                                  event.preventDefault();
+                                  selectChannel(internalChannel);
+                                }
+                              }}
+                              className="cursor-pointer font-medium text-[#60a5fa] hover:underline"
                             >
                               {children}
-                            </button>
+                            </span>
                           );
                         }
                         return (
@@ -450,8 +487,8 @@ const ChannelMessage = () => {
                       {decorateChannelMentions(
                         rendered,
                         channelMentions,
-                        (mention) =>
-                          router.push(`/client/${workspace.id}/${mention.id}`)
+                        selectChannel,
+                        preloadChannel
                       )}
                     </>
                   );
