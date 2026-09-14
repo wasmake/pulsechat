@@ -144,111 +144,100 @@ export default async function Home() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0d0f14] font-lato text-white">
-      <div className="pointer-events-none absolute left-[-12rem] top-20 h-[30rem] w-[30rem] rounded-full bg-[#6d5dfc]/10 blur-[100px]" />
-      <div className="pointer-events-none absolute right-[-10rem] top-[28rem] h-[24rem] w-[24rem] rounded-full bg-[#24b7a5]/[0.07] blur-[100px]" />
-      <Navbar action={goToGetStartedPage} />
-      <main className="relative mx-auto max-w-6xl px-5 pb-16 pt-12 sm:px-8 sm:pt-16">
-        <div className="mb-10 max-w-2xl">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#6d5dfc]/30 bg-[#6d5dfc]/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-[#aaa2ff]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#8b7fff] shadow-[0_0_10px_#8b7fff]" />
-            Workspace hub
-          </div>
-          <h1 className="font-outfit text-4xl font-semibold leading-tight tracking-[-0.03em] sm:text-6xl">
-            Pick up where your
-            <span className="block text-[#8b7fff]">team left off.</span>
+    <div className="min-h-screen bg-[#09090b] font-lato text-[#fafafa]">
+      <Navbar />
+      <main className="mx-auto max-w-5xl px-5 py-8 sm:px-6 sm:py-12">
+        <div className="mb-7">
+          <h1 className="font-outfit text-2xl font-semibold tracking-tight">
+            Choose a workspace
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-7 text-[#9ba2b2]">
-            Choose a workspace to open your conversations, or start a new home
-            for your team.
+          <p className="mt-1.5 text-sm text-[#a1a1aa]">
+            Signed in as {userEmail}
           </p>
         </div>
-        <div className="mb-8">
-          {workspaces.length > 0 ? (
-            <WorkspaceList
-              title={`Workspaces for ${userEmail}`}
-              workspaces={workspaces}
-              action={launchChat}
-              actionText="Open workspace"
-            />
-          ) : (
-            <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.025] px-6 py-12 text-center">
-              <p className="font-outfit text-xl font-bold">No workspaces yet</p>
-              <p className="mt-2 text-sm text-[#8e95a5]">
-                Create one below to start chatting with your team.
-              </p>
-            </div>
-          )}
-        </div>
-        <section className="mb-8 grid overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[#1d2030] to-[#171923] p-6 sm:grid-cols-[1fr_auto] sm:items-center sm:p-8">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#8277ff]">
-              Build a new space
-            </p>
-            <h2 className="mt-2 font-outfit text-2xl font-bold">
-              Bring another team to PulseChat
-            </h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-[#9ba2b2]">
-              Create channels, invite teammates, and keep every conversation in
-              one focused place.
-            </p>
-          </div>
-          <div className="mt-5 sm:ml-8 sm:mt-0">
-            <form action={goToGetStartedPage}>
-              <button
-                type="submit"
-                className="w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-[#14161d] transition hover:bg-[#e8e9ed] sm:w-auto"
-              >
-                Create a new workspace
-              </button>
-            </form>
-          </div>
-        </section>
-        <div className="mb-10">
-          {processedInvitations.length > 0 && (
-            <WorkspaceList
-              title={`Invitations for ${userEmail}`}
-              workspaces={processedInvitations}
-              action={acceptInvitation}
-              actionText="Accept invite"
-              buttonVariant="secondary"
-            />
-          )}
-        </div>
-        {canAccessAdmin && (
-          <Link
-            href="/admin"
-            className="mb-5 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-5 py-4 text-sm text-[#b8bdc8] transition hover:border-[#6d5dfc]/50 hover:bg-[#6d5dfc]/10 hover:text-white"
-          >
-            <span>
-              <strong className="block text-white">
-                Workspace administration
-              </strong>
-              <span className="mt-1 block text-xs text-[#7f8798]">
-                Manage workspace settings, members, roles, and invitations
-              </span>
-            </span>
-            <span className="text-xl text-[#8b7fff]" aria-hidden="true">
-              →
-            </span>
-          </Link>
-        )}
-        <SignOutButton className="mx-auto flex flex-col items-center justify-center rounded-lg px-4 py-2 text-[#9ba2b2] transition hover:bg-white/5 sm:flex-row">
-          <p className="text-sm sm:mr-2">Not seeing your workspace?</p>
-          <span className="ml-2 flex items-center gap-2 text-sm font-bold text-[#aaa2ff]">
-            <span>Try using a different email</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-[19px] h-[13px]"
-              fill="none"
-            >
-              <path
-                d="M1 6a.5.5 0 0 0 0 1V6zM12.854.646a.5.5 0 0 0-.708.708l.708-.708zM18 6.5l.354.354a.5.5 0 0 0 0-.708L18 6.5zm-5.854 5.146a.5.5 0 0 0 .708.708l-.708-.708zM1 7h16.5V6H1v1zm16.646-.854l-5.5 5.5.708.708 5.5-5.5-.708-.708zm-5.5-4.792l2.75 2.75.708-.708-2.75-2.75-.708.708zm2.75 2.75l2.75 2.75.708-.708-2.75-2.75-.708.708z"
-                fill="currentColor"
+
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-6">
+            {workspaces.length > 0 ? (
+              <WorkspaceList
+                title="Your workspaces"
+                workspaces={workspaces}
+                action={launchChat}
+                actionText="Open"
               />
-            </svg>
-          </span>
-        </SignOutButton>
+            ) : (
+              <div className="rounded-xl border border-dashed border-[#3f3f46] bg-[#0f0f12] px-6 py-12 text-center">
+                <p className="text-sm font-medium">No workspaces yet</p>
+                <p className="mt-1 text-sm text-[#71717a]">
+                  Create a workspace to start chatting with your team.
+                </p>
+              </div>
+            )}
+
+            {processedInvitations.length > 0 && (
+              <WorkspaceList
+                title="Pending invitations"
+                workspaces={processedInvitations}
+                action={acceptInvitation}
+                actionText="Accept"
+                buttonVariant="secondary"
+              />
+            )}
+          </div>
+
+          <aside className="space-y-4">
+            <section className="rounded-xl border border-[#27272a] bg-[#0f0f12] p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#3f3f46] bg-[#18181b] text-lg text-[#d4d4d8]">
+                +
+              </div>
+              <h2 className="mt-4 text-sm font-medium">Create a workspace</h2>
+              <p className="mt-1 text-xs leading-5 text-[#71717a]">
+                Start a new space for another team or project.
+              </p>
+              <div className="mt-4">
+                <form action={goToGetStartedPage}>
+                  <button
+                    type="submit"
+                    className="w-full rounded-md border border-[#3f3f46] bg-[#18181b] px-3 py-2 text-sm font-medium text-[#e4e4e7] transition-colors hover:bg-[#27272a]"
+                  >
+                    New workspace
+                  </button>
+                </form>
+              </div>
+            </section>
+
+            {canAccessAdmin && (
+              <Link
+                href="/admin"
+                className="block rounded-xl border border-[#27272a] bg-[#0f0f12] p-4 transition-colors hover:bg-[#18181b]"
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-medium text-[#fafafa]">
+                    Administration
+                  </h2>
+                  <span className="text-[#71717a]" aria-hidden="true">
+                    →
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[#71717a]">
+                  Manage workspaces, members, and invitations.
+                </p>
+              </Link>
+            )}
+
+            <section className="rounded-xl border border-[#27272a] bg-[#0f0f12] p-4">
+              <p className="truncate text-sm font-medium text-[#e4e4e7]">
+                {user.name}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-[#71717a]">
+                {userEmail}
+              </p>
+              <SignOutButton className="mt-4 w-full rounded-md px-3 py-2 text-left text-sm font-medium text-[#a1a1aa] transition-colors hover:bg-[#27272a] hover:text-[#fafafa]">
+                Sign out
+              </SignOutButton>
+            </section>
+          </aside>
+        </div>
       </main>
     </div>
   );

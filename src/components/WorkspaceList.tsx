@@ -20,16 +20,19 @@ const WorkspaceList = ({
   title,
   workspaces,
 }: WorkspaceListProps) => (
-  <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#151820] shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
-    <div className="border-b border-white/10 px-5 py-4 sm:px-6">
-      <h2 className="text-sm font-bold text-[#f0f1f5]">{title}</h2>
+  <section className="overflow-hidden rounded-xl border border-[#27272a] bg-[#0f0f12]">
+    <div className="flex items-center justify-between border-b border-[#27272a] px-4 py-3.5">
+      <h2 className="text-sm font-medium text-[#fafafa]">{title}</h2>
+      <span className="rounded-md bg-[#27272a] px-2 py-0.5 text-xs tabular-nums text-[#a1a1aa]">
+        {workspaces.length}
+      </span>
     </div>
-    <div className="divide-y divide-white/[0.07]">
+    <div className="divide-y divide-[#27272a]">
       {workspaces.map((workspace) => (
         <form
           action={action}
           key={workspace.id}
-          className="group flex flex-col gap-4 px-5 py-5 transition hover:bg-white/[0.035] sm:flex-row sm:items-center sm:px-6"
+          className="group flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[#18181b]"
         >
           <input
             type="hidden"
@@ -38,35 +41,33 @@ const WorkspaceList = ({
           />
           <input type="hidden" name="token" value={workspace.token} />
           <input type="hidden" name="workspaceId" value={workspace.id} />
-          <div className="flex min-w-0 flex-1 items-center gap-4">
-            {workspace.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={workspace.image}
-                alt=""
-                className="h-14 w-14 shrink-0 rounded-xl border border-white/10 object-cover"
-              />
-            ) : (
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[#8075ff]/30 bg-gradient-to-br from-[#6d5dfc] to-[#3d2fa7] font-outfit text-xl font-bold text-white shadow-[0_8px_24px_#6d5dfc33]">
-                {workspace.name.slice(0, 2).toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0">
-              <h3 className="truncate font-outfit text-lg font-bold text-white">
-                {workspace.name}
-              </h3>
-              <p className="mt-1 text-sm text-[#8e95a5]">
-                {workspace.memberCount} member
-                {workspace.memberCount !== 1 && 's'}
-              </p>
+          {workspace.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={workspace.image}
+              alt=""
+              className="h-10 w-10 shrink-0 rounded-lg border border-[#27272a] object-cover"
+            />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#3f3f46] bg-[#27272a] font-outfit text-sm font-semibold text-[#e4e4e7]">
+              {workspace.name.slice(0, 2).toUpperCase()}
             </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-medium text-[#fafafa]">
+              {workspace.name}
+            </h3>
+            <p className="mt-0.5 text-xs text-[#71717a]">
+              {workspace.memberCount} member
+              {workspace.memberCount !== 1 && 's'}
+            </p>
           </div>
           <button
             type="submit"
             className={
               buttonVariant === 'secondary'
-                ? 'w-full rounded-lg border border-[#6d5dfc]/60 px-5 py-2.5 text-sm font-bold text-[#b8b1ff] transition hover:bg-[#6d5dfc]/15 sm:w-auto'
-                : 'w-full rounded-lg bg-[#6d5dfc] px-5 py-2.5 text-sm font-bold text-white shadow-[0_8px_24px_#6d5dfc33] transition hover:bg-[#7d6fff] sm:w-auto'
+                ? 'shrink-0 rounded-md border border-[#3f3f46] bg-transparent px-3 py-1.5 text-xs font-medium text-[#e4e4e7] transition-colors hover:bg-[#27272a]'
+                : 'shrink-0 rounded-md bg-[#fafafa] px-3 py-1.5 text-xs font-medium text-[#18181b] transition-colors hover:bg-[#e4e4e7]'
             }
           >
             {actionText}
