@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import Navbar from '@/components/Navbar';
@@ -48,6 +49,9 @@ export default async function Home() {
       firstChannelId: workspace.channels[0].id,
     };
   });
+  const ownsWorkspace = memberships.some(
+    (membership) => membership.workspace.ownerId === user.id
+  );
 
   const invitations = await prisma.invitation.findMany({
     where: {
@@ -212,6 +216,24 @@ export default async function Home() {
             />
           )}
         </div>
+        {ownsWorkspace && (
+          <Link
+            href="/admin"
+            className="mb-5 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-5 py-4 text-sm text-[#b8bdc8] transition hover:border-[#6d5dfc]/50 hover:bg-[#6d5dfc]/10 hover:text-white"
+          >
+            <span>
+              <strong className="block text-white">
+                Workspace administration
+              </strong>
+              <span className="mt-1 block text-xs text-[#7f8798]">
+                Manage workspace settings, members, roles, and invitations
+              </span>
+            </span>
+            <span className="text-xl text-[#8b7fff]" aria-hidden="true">
+              →
+            </span>
+          </Link>
+        )}
         <SignOutButton className="mx-auto flex flex-col items-center justify-center rounded-lg px-4 py-2 text-[#9ba2b2] transition hover:bg-white/5 sm:flex-row">
           <p className="text-sm sm:mr-2">Not seeing your workspace?</p>
           <span className="ml-2 flex items-center gap-2 text-sm font-bold text-[#aaa2ff]">
