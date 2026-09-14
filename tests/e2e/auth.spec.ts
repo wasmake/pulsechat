@@ -12,6 +12,18 @@ test('shows Authy as the only sign-in method', async ({ page }) => {
   await expect(page.getByText("organization's Authy account")).toBeVisible();
 });
 
+test('offers a fresh sign-in when an OAuth request has expired', async ({
+  page,
+}) => {
+  await page.goto('/sign-in?error=please_restart_the_process');
+  await expect(page.getByRole('alert')).toContainText(
+    'sign-in request expired or was already used'
+  );
+  await expect(
+    page.getByRole('button', { name: 'Continue with Authy' })
+  ).toBeEnabled();
+});
+
 test('redirects protected pages to sign-in with their return path', async ({
   page,
 }) => {

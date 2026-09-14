@@ -33,6 +33,9 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [process.env.BETTER_AUTH_URL!],
+  onAPIError: {
+    errorURL: `${process.env.BETTER_AUTH_URL}/sign-in`,
+  },
   databaseHooks: {
     session: {
       create: {
