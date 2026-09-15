@@ -1,14 +1,4 @@
-import {
-  Children,
-  cloneElement,
-  isValidElement,
-  ReactNode,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Attachment,
@@ -39,63 +29,23 @@ type ChannelMention = { id: string; name: string };
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const decorateChannelMentions = (
-  node: ReactNode,
-  mentions: ChannelMention[],
-  onSelect: (mention: ChannelMention) => void,
-  onPreload: (mention: ChannelMention) => void
-): ReactNode => {
-  if (typeof node === 'string') {
-    if (!mentions.length) return node;
-    const byName = new Map(
-      mentions.map((mention) => [mention.name.toLowerCase(), mention])
+const renderChannelMentionMarkdown = (
+  text: string,
+  mentions: ChannelMention[]
+) => {
+  let renderedText = text;
+  for (const mention of [...mentions].sort(
+    (left, right) => right.name.length - left.name.length
+  )) {
+    renderedText = renderedText.replace(
+      new RegExp(
+        `(^|\\s)#${escapeRegExp(mention.name)}(?=\\s|$|[.,!?;:])`,
+        'gi'
+      ),
+      `$1[#${mention.name}](https://pulsechat.local/channel/${mention.id})`
     );
-    const names = mentions
-      .map((mention) => escapeRegExp(mention.name))
-      .sort((left, right) => right.length - left.length);
-    const parts = node.split(new RegExp(`(#(?:${names.join('|')}))`, 'gi'));
-    return parts.map((part, index) => {
-      const mention = part.startsWith('#')
-        ? byName.get(part.slice(1).toLowerCase())
-        : undefined;
-      return mention ? (
-        <span
-          key={`${mention.id}-${index}`}
-          role="link"
-          tabIndex={0}
-          onClick={() => onSelect(mention)}
-          onMouseEnter={() => onPreload(mention)}
-          onFocus={() => onPreload(mention)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              onSelect(mention);
-            }
-          }}
-          className="cursor-pointer font-medium text-[#60a5fa] hover:underline"
-        >
-          #{mention.name}
-        </span>
-      ) : (
-        part
-      );
-    });
   }
-  if (!isValidElement<{ children?: ReactNode }>(node)) return node;
-  if (
-    typeof node.type === 'string' &&
-    ['a', 'code', 'pre'].includes(node.type)
-  ) {
-    return node;
-  }
-  if (!node.props.children) return node;
-  return cloneElement(
-    node,
-    undefined,
-    Children.map(node.props.children, (child) =>
-      decorateChannelMentions(child, mentions, onSelect, onPreload)
-    )
-  );
+  return renderedText;
 };
 
 const ChannelMessage = () => {
@@ -478,12 +428,18 @@ const ChannelMessage = () => {
               )}
               <MessageText
                 renderText={(text, mentionedUsers) => {
-                  const rendered = renderText(text, mentionedUsers, {
+                  const renderedText = renderChannelMentionMarkdown(
+                    text || '',
+                    resolvedChannelMentions
+                  );
+                  return renderText(renderedText, mentionedUsers, {
                     customMarkDownRenderers: {
                       br: () => <span className="paragraph_break block h-2" />,
                       a: ({ href, children }) => {
                         const internalChannel = resolvedChannelMentions.find(
                           (item) =>
+                            href ===
+                              `https://pulsechat.local/channel/${item.id}` ||
                             href?.includes(`/client/${workspace.id}/${item.id}`)
                         );
                         if (internalChannel) {
@@ -524,16 +480,6 @@ const ChannelMessage = () => {
                       },
                     },
                   });
-                  return (
-                    <>
-                      {decorateChannelMentions(
-                        rendered,
-                        resolvedChannelMentions,
-                        selectChannel,
-                        preloadChannel
-                      )}
-                    </>
-                  );
                 }}
               />
               <div
